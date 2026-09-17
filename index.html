@@ -127,6 +127,12 @@
             font-weight: 600;
             background: #fff;
         }
+        
+        .disabled-tag {
+    opacity: 0.6;
+    cursor: default;
+    user-select: none;
+}
 
         .project-preview {
             width: 100%;
@@ -171,11 +177,11 @@
             bottom: 30px;
         }
 
-        /* Автоматическое угасание для последних заглушек */
-        .projects-list .project-card:nth-last-child(4) { opacity: 0.7; }
-        .projects-list .project-card:nth-last-child(3) { opacity: 0.45; }
-        .projects-list .project-card:nth-last-child(2) { opacity: 0.25; }
-        .projects-list .project-card:nth-last-child(1) { opacity: 0.1; }
+       /* Автоматическое угасание только для черных скелетонов-заглушек */
+.projects-list .project-card:has(.placeholder-line):nth-last-child(4) { opacity: 0.7; }
+.projects-list .project-card:has(.placeholder-line):nth-last-child(3) { opacity: 0.45; }
+.projects-list .project-card:has(.placeholder-line):nth-last-child(2) { opacity: 0.25; }
+.projects-list .project-card:has(.placeholder-line):nth-last-child(1) { opacity: 0.1; }
 
         /* Модальное окно */
         .modal-overlay {
@@ -308,12 +314,13 @@
         </a>
 
         <!-- Заглушки -->
-        <div class="project-card">
-            <div class="project-header">
-                <p>Пока что недоступно... Скоро появятся новые проекты</p>
-                <div class="placeholder-tag"></div>
-            </div>
-        </div>
+<!-- Проект 3 (Заглушка) -->
+<div class="project-card">
+    <div class="project-header">
+        <p>Пока что недоступно... Скоро появятся новые проекты</p>
+        <span class="project-tag disabled-tag">soon</span>
+    </div>
+</div>
 
         <div class="project-card">
             <div class="project-header">
@@ -359,7 +366,7 @@
         </div>
     </div>
 
-    <!-- Единый рабочий скрипт -->
+<!-- Единый рабочий скрипт -->
     <script>
         const loginBtn = document.getElementById('loginBtn');
         const toast = document.getElementById('toast');
@@ -368,33 +375,44 @@
         const closeModalBtn = document.getElementById('closeModalBtn');
         const htmlCompBtn = document.getElementById('htmlCompBtn');
 
+        let toastTimeout;
+
         function showToast(message) {
+            clearTimeout(toastTimeout);
             toast.textContent = message;
             toast.classList.add('show');
-            setTimeout(() => {
+            toastTimeout = setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
         }
 
+        // Авторизация
         loginBtn.addEventListener('click', () => {
             showToast("Вход и авторизация временно недоступны");
         });
 
-        openCompilerBtn.addEventListener('click', () => {
+        // Открытие модалки
+        openCompilerBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             compilerModal.classList.add('active');
         });
 
+        // Закрытие по крестику
         closeModalBtn.addEventListener('click', () => {
             compilerModal.classList.remove('active');
         });
 
+        // Закрытие по фону
         compilerModal.addEventListener('click', (e) => {
             if (e.target === compilerModal) {
                 compilerModal.classList.remove('active');
             }
         });
 
-        htmlCompBtn.addEventListener('click', () => {
+        // Клик по неактивному HTML-компилятору
+        htmlCompBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            compilerModal.classList.remove('active'); // Закрываем модалку, чтобы открыть плашку
             showToast("Компилятор html пока что недоступен");
         });
     </script>
