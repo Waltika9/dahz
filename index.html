@@ -170,11 +170,104 @@
         .toast.show {
             bottom: 30px;
         }
+
         /* Автоматическое угасание для последних заглушек */
-.projects-list .project-card:nth-last-child(4) { opacity: 0.7; }
-.projects-list .project-card:nth-last-child(3) { opacity: 0.45; }
-.projects-list .project-card:nth-last-child(2) { opacity: 0.25; }
-.projects-list .project-card:nth-last-child(1) { opacity: 0.1; }
+        .projects-list .project-card:nth-last-child(4) { opacity: 0.7; }
+        .projects-list .project-card:nth-last-child(3) { opacity: 0.45; }
+        .projects-list .project-card:nth-last-child(2) { opacity: 0.25; }
+        .projects-list .project-card:nth-last-child(1) { opacity: 0.1; }
+
+        /* Модальное окно */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-window {
+            position: relative;
+            background: #ffffff;
+            border: 3px solid #000000;
+            box-shadow: 6px 6px 0px #000000;
+            padding: 30px 20px 20px 20px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        /* Пиксельный красный крестик */
+        .modal-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: #ff4d4d;
+            border: 2px solid #000000;
+            color: #000000;
+            font-family: monospace;
+            font-size: 20px;
+            font-weight: bold;
+            line-height: 22px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #ffffff;
+            border: 2px solid #000000;
+            box-shadow: 3px 3px 0px #000000;
+            font-weight: bold;
+            text-decoration: none;
+            color: #000000;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.95rem;
+        }
+
+        .modal-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .modal-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px #000000;
+        }
     </style>
 </head>
 <body>
@@ -190,7 +283,7 @@
     <!-- Навигация -->
     <div class="sub-nav">
         <div class="section-title">Все проекты:</div>
-        <a href="./compiler.html" class="btn">Открыть компилятор</a>
+        <button class="btn" id="openCompilerBtn">Открыть компилятор</button>
     </div>
 
     <!-- Карточки проектов -->
@@ -211,10 +304,10 @@
                 <span class="project-tag">calc.py</span>
             </div>
             <!-- Скриншот калькулятора Гамбола -->
-         <img src="gumball-calculator.jpg" alt="Превью Калькулятора" class="project-preview" onerror="this.style.display='none'">
+            <img src="gumball-calculator.jpg" alt="Превью Калькулятора" class="project-preview" onerror="this.style.display='none'">
         </a>
 
-        <!-- Проект 3 (Заглушка) -->
+        <!-- Заглушки -->
         <div class="project-card">
             <div class="project-header">
                 <p>Пока что недоступно... Скоро появятся новые проекты</p>
@@ -222,7 +315,6 @@
             </div>
         </div>
 
-        <!-- Проект 4 (Заглушка) -->
         <div class="project-card">
             <div class="project-header">
                 <div class="placeholder-line" style="width: 70%;"></div>
@@ -230,45 +322,81 @@
             </div>
         </div>
 
-        <!-- Проект 5 (Заглушка) -->
         <div class="project-card">
             <div class="project-header">
                 <div class="placeholder-line" style="width: 55%;"></div>
                 <div class="placeholder-tag"></div>
             </div>
         </div>
-        <!-- Заглушка 6 -->
-<div class="project-card placeholder-fade">
-    <div class="project-header">
-        <div class="placeholder-line" style="width: 50%;"></div>
-        <div class="placeholder-tag"></div>
-    </div>
-</div>
 
-<!-- Заглушка 7 -->
-<div class="project-card placeholder-fade">
-    <div class="project-header">
-        <div class="placeholder-line" style="width: 65%;"></div>
-        <div class="placeholder-tag"></div>
-    </div>
-</div>
+        <div class="project-card">
+            <div class="project-header">
+                <div class="placeholder-line" style="width: 50%;"></div>
+                <div class="placeholder-tag"></div>
+            </div>
+        </div>
+
+        <div class="project-card">
+            <div class="project-header">
+                <div class="placeholder-line" style="width: 65%;"></div>
+                <div class="placeholder-tag"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Всплывающая плашка -->
-    <div id="toast" class="toast">Вход и авторизация временно недоступны</div>
+    <div id="toast" class="toast">Уведомление</div>
 
-    <!-- Скрипт для работы кнопки -->
+    <!-- Модальное окно выбора компилятора -->
+    <div id="compilerModal" class="modal-overlay">
+        <div class="modal-window">
+            <button class="modal-close" id="closeModalBtn">×</button>
+            <h3 class="modal-title">Выберите компилятор</h3>
+            <div class="modal-buttons">
+                <a href="pycomp.html" class="modal-btn">Открыть компилятор python</a>
+                <button class="modal-btn" id="htmlCompBtn">Открыть компилятор html</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Единый рабочий скрипт -->
     <script>
         const loginBtn = document.getElementById('loginBtn');
         const toast = document.getElementById('toast');
+        const compilerModal = document.getElementById('compilerModal');
+        const openCompilerBtn = document.getElementById('openCompilerBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const htmlCompBtn = document.getElementById('htmlCompBtn');
 
-        loginBtn.addEventListener('click', () => {
+        function showToast(message) {
+            toast.textContent = message;
             toast.classList.add('show');
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+
+        loginBtn.addEventListener('click', () => {
+            showToast("Вход и авторизация временно недоступны");
+        });
+
+        openCompilerBtn.addEventListener('click', () => {
+            compilerModal.classList.add('active');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            compilerModal.classList.remove('active');
+        });
+
+        compilerModal.addEventListener('click', (e) => {
+            if (e.target === compilerModal) {
+                compilerModal.classList.remove('active');
+            }
+        });
+
+        htmlCompBtn.addEventListener('click', () => {
+            showToast("Компилятор html пока что недоступен");
         });
     </script>
-
 </body>
 </html>
