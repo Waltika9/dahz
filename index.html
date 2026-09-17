@@ -1,1 +1,274 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои Проекты и ДЗ</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #000000;
+            --text-color: #0f172a;
+            --accent-hover: #e2e8f0;
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* Шапка сайта */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 15px;
+        }
+
+        .welcome-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .btn {
+            border: 3px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            padding: 8px 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s ease;
+            box-shadow: 3px 3px 0px var(--border-color);
+        }
+
+        .btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0px var(--border-color);
+            background: var(--accent-hover);
+        }
+
+        .btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 2px 2px 0px var(--border-color);
+        }
+
+        /* Навигация под шапкой */
+        .sub-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            border: 3px solid var(--border-color);
+            padding: 8px 16px;
+            background: var(--card-bg);
+            font-size: 1.1rem;
+            box-shadow: 3px 3px 0px var(--border-color);
+        }
+
+        /* Список проектов */
+        .projects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .project-card {
+            border: 3px solid var(--border-color);
+            background: var(--card-bg);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: all 0.25s ease;
+            box-shadow: 4px 4px 0px var(--border-color);
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .project-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 6px 6px 0px var(--border-color);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .project-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .project-tag {
+            border: 2px solid var(--border-color);
+            padding: 4px 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: #fff;
+        }
+
+        .project-preview {
+            width: 100%;
+            max-height: 350px;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        /* Заглушки для будущих проектов */
+        .placeholder-line {
+            height: 12px;
+            background: #000;
+            border-radius: 6px;
+            width: 60%;
+        }
+
+        .placeholder-tag {
+            height: 20px;
+            width: 80px;
+            background: #000;
+            border-radius: 4px;
+        }
+
+        /* Стили плашки-уведомления */
+        .toast {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0px #000;
+            font-weight: 600;
+            transition: bottom 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            bottom: 30px;
+        }
+        /* Автоматическое угасание для последних заглушек */
+.projects-list .project-card:nth-last-child(4) { opacity: 0.7; }
+.projects-list .project-card:nth-last-child(3) { opacity: 0.45; }
+.projects-list .project-card:nth-last-child(2) { opacity: 0.25; }
+.projects-list .project-card:nth-last-child(1) { opacity: 0.1; }
+    </style>
+</head>
+<body>
+
+    <!-- Шапка -->
+    <header>
+        <div class="welcome-text">
+            Добро пожаловать, тут я хочу собирать все проекты...
+        </div>
+        <button class="btn" id="loginBtn">Войти/Авторизоваться</button>
+    </header>
+
+    <!-- Навигация -->
+    <div class="sub-nav">
+        <div class="section-title">Все проекты:</div>
+        <a href="./compiler.html" class="btn">Открыть компилятор</a>
+    </div>
+
+    <!-- Карточки проектов -->
+    <div class="projects-list">
+
+        <!-- Проект 1: Авиабилеты -->
+        <a href="./aviasales.html" class="project-card">
+            <div class="project-header">
+                <span class="project-title">Продажа авиабилетов ✈️</span>
+                <span class="project-tag">aviasales.html</span>
+            </div>
+        </a>
+
+        <!-- Проект 2: Калькулятор с превью -->
+        <a href="./calc.py" class="project-card">
+            <div class="project-header">
+                <span class="project-title">КалькУлятор</span>
+                <span class="project-tag">calc.py</span>
+            </div>
+            <!-- Скриншот калькулятора Гамбола -->
+            <img src="https://i.ibb.co/L5342Jk/gumball-calculator.png" alt="Превью Калькулятора" class="project-preview" onerror="this.style.display='none'">
+        </a>
+
+        <!-- Проект 3 (Заглушка) -->
+        <div class="project-card">
+            <div class="project-header">
+                <p>Пока что недоступно... Скоро появятся новые проекты</p>
+                <div class="placeholder-tag"></div>
+            </div>
+        </div>
+
+        <!-- Проект 4 (Заглушка) -->
+        <div class="project-card">
+            <div class="project-header">
+                <div class="placeholder-line" style="width: 70%;"></div>
+                <div class="placeholder-tag"></div>
+            </div>
+        </div>
+
+        <!-- Проект 5 (Заглушка) -->
+        <div class="project-card">
+            <div class="project-header">
+                <div class="placeholder-line" style="width: 55%;"></div>
+                <div class="placeholder-tag"></div>
+            </div>
+        </div>
+        <!-- Заглушка 6 -->
+<div class="project-card placeholder-fade">
+    <div class="project-header">
+        <div class="placeholder-line" style="width: 50%;"></div>
+        <div class="placeholder-tag"></div>
+    </div>
+</div>
+
+<!-- Заглушка 7 -->
+<div class="project-card placeholder-fade">
+    <div class="project-header">
+        <div class="placeholder-line" style="width: 65%;"></div>
+        <div class="placeholder-tag"></div>
+    </div>
+</div>
+    </div>
+
+    <!-- Всплывающая плашка -->
+    <div id="toast" class="toast">Вход и авторизация временно недоступны</div>
+
+    <!-- Скрипт для работы кнопки -->
+    <script>
+        const loginBtn = document.getElementById('loginBtn');
+        const toast = document.getElementById('toast');
+
+        loginBtn.addEventListener('click', () => {
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        });
+    </script>
+
+</body>
+</html>
