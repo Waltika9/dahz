@@ -281,7 +281,7 @@ header {
 .intro-curtain {
     position: fixed;
     inset: 0;
-    background: #0f172a;
+    background: #010101;
     z-index: 9999;
     overflow: hidden;
     pointer-events: none;
@@ -305,7 +305,7 @@ header {
     box-shadow:
         0 0 30px 15px rgba(248, 250, 252, 0.95),
         0 0 100px 50px rgba(248, 250, 252, 0.6),
-        0 0 220px 110px rgba(248, 250, 252, 0.35);
+        0 0 220px 110px rgba(0, 0, 0, 0.35);
     transform: scale(0);
     transition: transform 1.3s cubic-bezier(0.45, 0, 0.15, 1);
 }
