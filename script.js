@@ -65,16 +65,16 @@ if (soonCard) {
     // Мгновение тёмной паузы, затем из центра расцветает свечение
     setTimeout(() => {
         curtain.classList.add('active');
-    }, 250);
+    }, 500);
 
     // Свечение дошло до краёв — плавно убираем шторку
     setTimeout(() => {
         curtain.classList.add('done');
         document.body.classList.remove('intro-locked');
-    }, 1700);
+    }, 700);
 
     // Полностью удаляем элемент из DOM
     setTimeout(() => {
         curtain.remove();
-    }, 2100);
+    }, 1000);
 })();
