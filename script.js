@@ -53,3 +53,28 @@ if (soonCard) {
         showToast("Этот проект пока находится в разработке");
     });
 }
+
+// ===== Анимация входа на главную страницу =====
+(function () {
+    const curtain = document.getElementById('introCurtain');
+    if (!curtain) return;
+
+    // Блокируем прокрутку на время анимации
+    document.body.classList.add('intro-locked');
+
+    // Мгновение тёмной паузы, затем из центра расцветает свечение
+    setTimeout(() => {
+        curtain.classList.add('active');
+    }, 250);
+
+    // Свечение дошло до краёв — плавно убираем шторку
+    setTimeout(() => {
+        curtain.classList.add('done');
+        document.body.classList.remove('intro-locked');
+    }, 1700);
+
+    // Полностью удаляем элемент из DOM
+    setTimeout(() => {
+        curtain.remove();
+    }, 2100);
+})();
