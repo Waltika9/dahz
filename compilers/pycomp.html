@@ -166,19 +166,18 @@
             outputEl.textContent = "Выполняется...\n";
             
             pyodide.setStdout({
-                batched: (text) => {
-                    outputEl.textContent += text + "\n";
-                }
-            });
+                batched: (text) => { outputEl.textContent += text; }
 
             try {
                 const code = editor.getValue();
                 await pyodide.runPythonAsync(code);
-            } catch (err) {
-                outputEl.style.color = "#f92672";
-                outputEl.textContent += "\nОшибка:\n" + err;
-            }
-        }
+} catch (err) {
+    // Экранируем < и >, чтобы HTML-теги в ошибке не сломали разметку
+    const safeErr = String(err).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    outputEl.insertAdjacentHTML('beforeend', 
+        '\n<span style="color: #f92672;">Ошибка:\n' + safeErr + '</span>'
+    );
+}
 
         document.getElementById("runBtn").addEventListener("click", runPython);
     </script>
