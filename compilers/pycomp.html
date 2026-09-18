@@ -17,6 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/python-hint.js"></script>
 
     <style>
         /* Мягкий тёмно-серый фон страницы */
@@ -131,13 +132,6 @@
             }
         });
 
-        // Автодополнение при вводе
-        editor.on("inputRead", function(cm, change) {
-            if (change.text[0].match(/[a-zA-Z_]/)) {
-                CodeMirror.commands.autocomplete(cm, null, { completeSingle: false });
-            }
-        });
-
         // Загрузка ядра Python
         async function loadPyodideEngine() {
             const outputEl = document.getElementById("output");
@@ -167,6 +161,7 @@
             
             pyodide.setStdout({
                 batched: (text) => { outputEl.textContent += text; }
+            });
 
             try {
                 const code = editor.getValue();
@@ -174,10 +169,11 @@
 } catch (err) {
     // Экранируем < и >, чтобы HTML-теги в ошибке не сломали разметку
     const safeErr = String(err).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    outputEl.insertAdjacentHTML('beforeend', 
+     outputEl.insertAdjacentHTML('beforeend', 
         '\n<span style="color: #f92672;">Ошибка:\n' + safeErr + '</span>'
     );
-}
+        }
+        }
 
         document.getElementById("runBtn").addEventListener("click", runPython);
     </script>
