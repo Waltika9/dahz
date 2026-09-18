@@ -2389,19 +2389,13 @@ const brain = `
 - Всё класс.
 `;
 
-// Загружаем мозг бота (поддержка разных версий RiveScript)
+// Загружаем мозг бота
 try {
     bot.stream(brain);
     bot.sortReplies();
     console.log("Глубокий Больной ✨ готов!");
 } catch (e) {
-    // На случай, если используется асинхронная версия
-    if (bot.stream(brain) && bot.stream(brain).then) {
-        bot.stream(brain).then(() => {
-            bot.sortReplies();
-            console.log("Глубокий Больной ✨ готов!");
-        });
-    }
+    console.error("Ошибка инициализации:", e);
 }
 
 // Функция для общения с ботом
@@ -2410,7 +2404,7 @@ async function askDeepSick(message) {
         const reply = await bot.reply("user", message);
         return reply;
     } catch (e) {
-        return bot.reply("user", message);
+        return "Упс, произошла ошибка в коде бота...";
     }
 }
 
