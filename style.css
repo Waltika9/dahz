@@ -276,3 +276,45 @@ header {
     transform: translate(2px, 2px);
     box-shadow: 1px 1px 0px #000000;
 }
+
+/* ===== Анимация входа на главную ===== */
+.intro-curtain {
+    position: fixed;
+    inset: 0;
+    background: #0f172a;
+    z-index: 9999;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.intro-curtain.done {
+    opacity: 0;
+}
+
+.intro-curtain__pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12vmax;
+    height: 12vmax;
+    margin: -6vmax 0 0 -6vmax;
+    border-radius: 50%;
+    background: #f8fafc;
+    box-shadow:
+        0 0 30px 15px rgba(248, 250, 252, 0.95),
+        0 0 100px 50px rgba(248, 250, 252, 0.6),
+        0 0 220px 110px rgba(248, 250, 252, 0.35);
+    transform: scale(0);
+    transition: transform 1.3s cubic-bezier(0.45, 0, 0.15, 1);
+}
+
+.intro-curtain.active .intro-curtain__pulse {
+    transform: scale(40);
+}
+
+/* Блокируем скролл, пока идёт анимация */
+body.intro-locked {
+    overflow: hidden;
+}
