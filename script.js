@@ -78,3 +78,11 @@ if (soonCard) {
         curtain.remove();
     }, 1000);
 })();
+
+// Все карточки с классом "not-ready" показывают toast вместо перехода
+document.querySelectorAll('.not-ready').forEach(card => {
+    card.addEventListener('click', (e) => {
+        e.preventDefault();
+        showToast("Проект на стадии разработки...");
+    });
+});
