@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Компилятор</title>
+    <!-- Подключаем стили сайта -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Редактор CodeMirror и популярная тема Monokai -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.css">
+    
+    <!-- Pyodide и CodeMirror JS -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
+
+    <style>
+        /* Мягкий тёмно-серый фон страницы */
+        body {
+            background-color: #1e1e1e;
+            color: #f8f8f2;
+            --border-color: #444444;
+            --card-bg: #252526;
+        }
+
+        /* Аккуратные серые рамки для кнопок */
+        .btn {
+            border: 2px solid #444444 !important;
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            box-shadow: 3px 3px 0px #444444 !important;
+        }
+
+        .btn:hover {
+            background: #3e3e3e !important;
+            box-shadow: 4px 4px 0px #444444 !important;
+        }
+
+        .compiler-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        /* Мягкая рамка для блока редактора */
+        .editor-wrapper {
+            border: 2px solid #444444;
+            box-shadow: 4px 4px 0px #444444;
+            background: #272822;
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        /* Настройка размеров и шрифта редактора */
+        .CodeMirror {
+            height: 300px;
+            font-size: 15px;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+        }
+
+        /* Мягкая рамка для консоли вывода */
+        .output-box {
+            border: 2px solid #444444;
+            background: #272822;
+            color: #a6e22e; /* Красивый зеленый текст Monokai */
+            padding: 15px;
+            box-shadow: 4px 4px 0px #444444;
+            min-height: 120px;
+            font-family: 'Consolas', monospace;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            border-radius: 4px;
+        }
+
+        .output-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #f8f8f2;
+            border-bottom: 1px solid #3e3d32;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="btn">← На главную</a>
+        <div class="welcome-text" style="color: #ffffff;">Python IDE</div>
+    </header>
+
+    <div class="controls">
+        <button class="btn" id="runBtn">▶ Запустить (Ctrl+Enter)</button>
+    </div>
+
+    <div class="compiler-container">
+        <!-- Панель редактора -->
+        <div class="editor-wrapper">
+            <textarea id="codeEditor">#Это просто мой личный компилятор ;)</textarea>
+        </div>
+
+        <!-- Консоль вывода -->
+        <div class="output-box">
+            <div class="output-title">Результат выполнения:</div>
+            <div id="output" style="color: #888888;">Загрузка ядра Python... Подождите пару секунд.</div>
+        </div>
+    </div>
+
+    <script>
+        let pyodideReady = false;
+        let pyodide;
+
+        // Инициализация редактора CodeMirror с темой Monokai
+        const editor = CodeMirror.fromTextArea(document.getElementById("codeEditor"), {
+            mode: "python",
+            theme: "monokai",
+            lineNumbers: true,
+            extraKeys: {
+                "Ctrl-Space": "autocomplete",
+                "Ctrl-Enter": function() { runPython(); }
+            }
+        });
+
+        // Автодополнение при вводе
+        editor.on("inputRead", function(cm, change) {
+            if (change.text[0].match(/[a-zA-Z_]/)) {
+                CodeMirror.commands.autocomplete(cm, null, { completeSingle: false });
+            }
+        });
+
+        // Загрузка ядра Python
+        async function loadPyodideEngine() {
+            const outputEl = document.getElementById("output");
+            try {
+                pyodide = await loadPyodide();
+                pyodideReady = true;
+                outputEl.style.color = "#a6e22e";
+                outputEl.textContent = "Python готов к работе! Нажми «Запустить».";
+            } catch (err) {
+                outputEl.style.color = "#f92672";
+                outputEl.textContent = "Ошибка загрузки Python: " + err;
+            }
+        }
+        loadPyodideEngine();
+
+        // Функция запуска кода
+        async function runPython() {
+            const outputEl = document.getElementById("output");
+            if (!pyodideReady) {
+                outputEl.style.color = "#888888";
+                outputEl.textContent = "Загрузка Python еще не завершена...";
+                return;
+            }
+
+            outputEl.style.color = "#a6e22e";
+            outputEl.textContent = "Выполняется...\n";
+            
+            pyodide.setStdout({
+                batched: (text) => {
+                    outputEl.textContent += text + "\n";
+                }
+            });
+
+            try {
+                const code = editor.getValue();
+                await pyodide.runPythonAsync(code);
+            } catch (err) {
+                outputEl.style.color = "#f92672";
+                outputEl.textContent += "\nОшибка:\n" + err;
+            }
+        }
+
+        document.getElementById("runBtn").addEventListener("click", runPython);
+    </script>
+</body>
+</html>
