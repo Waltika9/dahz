@@ -2389,24 +2389,32 @@ const brain = `
 - Всё класс.
 `;
 
-// Загружаем мозг бота
-bot.stream(brain).then(() => {
-    return bot.sortReplies();
-}).then(() => {
+// Загружаем мозг бота (поддержка разных версий RiveScript)
+try {
+    bot.stream(brain);
+    bot.sortReplies();
     console.log("Глубокий Больной ✨ готов!");
-}).catch(error => {
-    console.error("Ошибка загрузки:", error);
-});
-
+} catch (e) {
+    // На случай, если используется асинхронная версия
+    if (bot.stream(brain) && bot.stream(brain).then) {
+        bot.stream(brain).then(() => {
+            bot.sortReplies();
+            console.log("Глубокий Больной ✨ готов!");
+        });
+    }
+}
 
 // Функция для общения с ботом
 async function askDeepSick(message) {
-    const reply = await bot.reply("user", message);
-    return reply;
+    try {
+        const reply = await bot.reply("user", message);
+        return reply;
+    } catch (e) {
+        return bot.reply("user", message);
+    }
 }
 
-
-// Экспортируем функцию для будущего интерфейса
+// Экспортируем функцию для интерфейса
 window.DeepSick = {
     ask: askDeepSick
 };
