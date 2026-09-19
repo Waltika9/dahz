@@ -50,7 +50,7 @@ htmlCompBtn.addEventListener('click', (e) => {
 // Клик по карточке "soon"
 if (soonCard) {
     soonCard.addEventListener('click', () => {
-        showToast("Этот проект пока находится в разработке");
+        showToast("Скоро появятся новые проекты");
     });
 }
 
