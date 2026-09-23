@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Решатель систем и неравенств | Waltika Projects</title>
+    
+    <!-- Иконка -->
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+    
+    <!-- KaTeX для красивых формул -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <!-- Pyodide (Python в браузере) -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+
+    <!-- Стили главного сайта (там уже есть .toast, .btn, .modal-overlay) -->
+    <link rel="stylesheet" href="../style.css">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        .solver-card {
+            border: 3px solid #000;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 4px 4px 0px #000;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .system-input {
+            flex: 1;
+            padding: 12px 14px;
+            border: 3px solid #000;
+            font-size: 1.05rem;
+            font-family: 'Consolas', 'Courier New', monospace;
+            box-shadow: 3px 3px 0px #000;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .system-input:focus {
+            outline: none;
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0px #000;
+            background: #fffde7;
+        }
+
+        /* ===== Кнопка-корзина справа от строки ===== */
+        .trash-btn {
+            flex-shrink: 0;
+            width: 48px;
+            padding: 0;
+            border: 3px solid #000;
+            background: #fff;
+            box-shadow: 3px 3px 0px #000;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .trash-btn img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .trash-btn:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 5px 5px 0px #000;
+            background: #fee2e2;
+        }
+
+        .trash-btn:hover img {
+    transform: rotate(-10deg);
+    transition: transform 0.2s ease;
+}
+
+        .trash-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0px #000;
+        }
+
+        /* ===== Кнопка "Добавить строку" ===== */
+        .add-row-btn {
+            width: 100%;
+            padding: 12px;
+            border: 3px dashed #000;
+            background: #fff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-family: inherit;
+            color: #0f172a;
+            margin-bottom: 15px;
+            transition: background 0.15s ease;
+        }
+
+        .add-row-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 14px;
+            border: 3px solid #000;
+            background: #fef08a;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 18px;
+            box-shadow: 3px 3px 0px #000;
+        }
+
+        .status-badge.ready { background: #bbf7d0; }
+        .status-badge.error { background: #fca5a5; }
+
+        .step-block {
+            border: 3px solid #000;
+            background: #f8fafc;
+            padding: 15px;
+            margin-top: 15px;
+            box-shadow: 3px 3px 0px #000;
+        }
+
+        .step-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .solve-btn {
+            width: 100%;
+            padding: 14px !important;
+            font-size: 1.1rem !important;
+            margin-top: 10px;
+        }
+
+        .solve-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: 3px 3px 0px #000 !important;
+        }
+
+        .btn-small {
+            padding: 6px 12px !important;
+            font-size: 0.9rem !important;
+        }
+
+        .error-card { background: #fee2e2 !important; }
+
+        .help-list {
+            text-align: left;
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 0.95rem;
+        }
+
+        .help-item {
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border: 2px solid #000;
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        .help-item code {
+            background: #fff;
+            padding: 2px 6px;
+            border: 1px solid #000;
+            font-family: monospace;
+        }
+
+        /* ===== Модалка "Примеры" ===== */
+        .examples-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: left;
+            margin: 15px 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .example-item {
+            border: 2px solid #000;
+            background: #f8fafc;
+            padding: 10px 14px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #000;
+            transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .example-item:hover {
+            background: #e2e8f0;
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0px #000;
+        }
+
+        .example-item strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+
+        .example-item code {
+            font-family: monospace;
+            font-size: 0.88rem;
+            color: #475569;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="welcome-text">
+            📐 КалькУлятор (Решатель систем и неравенств)
+        </div>
+        <a href="../index.html" class="btn">← На главную</a>
+    </header>
+
+    <main class="projects-list">
+        <div class="solver-card">
+            <div id="status" class="status-badge">⏳ Инициализация Python-движка...</div>
+            
+            <p style="margin-bottom: 12px; font-weight: 600;">Введите уравнения или неравенства:</p>
+            
+            <!-- Контейнер для строк ввода. Первая строка без корзины. -->
+            <div class="input-group" id="inputsContainer">
+                <div class="input-row">
+                    <input type="text" class="system-input" value="x + y = 5" placeholder="Уравнение 1">
+                </div>
+                <div class="input-row">
+                    <input type="text" class="system-input" value="x - y = 1" placeholder="Уравнение 2">
+                </div>
+            </div>
+
+            <!-- Кнопка добавления строки -->
+            <button id="addRowBtn" class="add-row-btn" type="button">+ Добавить строку</button>
+
+            <div class="controls-row">
+                <button id="examplesBtn" class="btn btn-small">📚 Примеры</button>
+                <button id="clearBtn" class="btn btn-small">🧹 Очистить</button>
+                <button id="helpBtn" class="btn btn-small">❓ Подсказка</button>
+            </div>
+
+            <button id="solveBtn" class="btn solve-btn" disabled>Загрузка движка...</button>
+        </div>
+
+        <div id="output"></div>
+    </main>
+
+    <!-- ===== Модалка: Подсказка ===== -->
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal-window">
+            <button class="modal-close" id="closeHelpBtn">×</button>
+            <h3 class="modal-title">Как вводить данные</h3>
+            
+            <div class="help-list">
+                <div class="help-item">
+                    <strong>Возведение в степень:</strong><br>
+                    Используйте <code>^</code> или <code>**</code><br>
+                    Пример: <code>x^2 + y^2 = 65</code>
+                </div>
+                <div class="help-item">
+                    <strong>Дроби и деление:</strong><br>
+                    Оборачивайте выражения в скобки.<br>
+                    Пример: <code>(x + 1) / (y - 2) = 3</code>
+                </div>
+                <div class="help-item">
+                    <strong>Умножение:</strong><br>
+                    Можно писать <code>2*x</code>, <code>2x</code> или <code>2(x+1)</code>.
+                </div>
+                <div class="help-item">
+                    <strong>Неравенства:</strong><br>
+                    Используйте <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code><br>
+                    Пример: <code>2*x + 5 &gt; 10</code>
+                </div>
+                <div class="help-item">
+                    <strong>Системы:</strong><br>
+                    Добавьте несколько строк — они решатся как система.
+                </div>
+            </div>
+
+            <button class="modal-btn" id="okHelpBtn">Понятно!</button>
+        </div>
+    </div>
+
+    <!-- ===== Модалка: Примеры ===== -->
+    <div id="examplesModal" class="modal-overlay">
+        <div class="modal-window" style="max-width: 520px;">
+            <button class="modal-close" id="closeExamplesBtn">×</button>
+            <h3 class="modal-title">Примеры</h3>
+            <p style="font-size: 0.9rem; color: #475569;">Кликни на пример, чтобы загрузить его в поля ввода.</p>
+
+            <div class="examples-list" id="examplesList"></div>
+
+            <button class="modal-btn" id="cancelExamplesBtn">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- ===== Модалка: Подтверждение удаления ===== -->
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-window">
+            <button class="modal-close" id="closeConfirmBtn">×</button>
+            <h3 class="modal-title">Удалить строку?</h3>
+            <p id="confirmText" style="margin: 15px 0; line-height: 1.5;">Вы уверены?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn" id="confirmYesBtn" style="background:#fee2e2;">Да, удалить</button>
+                <button class="modal-btn" id="confirmNoBtn">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ВСПЛЫВАЮЩАЯ ПЛАШКА (toast) ===== -->
+    <div id="toast" class="toast">Уведомление</div>
+
+    <script>
+        let pyodide = null;
+
+        const inputsContainer = document.getElementById('inputsContainer');
+        const addRowBtn = document.getElementById('addRowBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModal = document.getElementById('helpModal');
+        const closeHelpBtn = document.getElementById('closeHelpBtn');
+        const okHelpBtn = document.getElementById('okHelpBtn');
+        const solveBtn = document.getElementById('solveBtn');
+
+        const examplesBtn = document.getElementById('examplesBtn');
+        const examplesModal = document.getElementById('examplesModal');
+        const examplesList = document.getElementById('examplesList');
+        const closeExamplesBtn = document.getElementById('closeExamplesBtn');
+        const cancelExamplesBtn = document.getElementById('cancelExamplesBtn');
+
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmText = document.getElementById('confirmText');
+        const closeConfirmBtn = document.getElementById('closeConfirmBtn');
+        const confirmYesBtn = document.getElementById('confirmYesBtn');
+        const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+        // ===== TOAST =====
+        const toast = document.getElementById('toast');
+        let toastTimeout;
+
+        function showToast(message) {
+            clearTimeout(toastTimeout);
+            toast.textContent = message;
+            toast.classList.add('show');
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // ===== УПРАВЛЕНИЕ СТРОКАМИ =====
+
+        // Создаёт кнопку с корзиной для строки
+        function createTrashBtn() {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'trash-btn';
+            btn.setAttribute('aria-label', 'Удалить строку');
+
+            const img = document.createElement('img');
+            img.src = '../images/trashbin.png';
+            img.alt = '';
+            // Если картинки нет — покажем emoji-фолбэк
+            img.onerror = function () {
+                this.parentNode.textContent = '🗑';
+            };
+
+            btn.appendChild(img);
+            btn.addEventListener('click', () => requestDeleteRow(btn.closest('.input-row')));
+            return btn;
+        }
+
+        // Обновляет корзины: в первой строке её быть не должно, в остальных — должна быть
+        function refreshTrashBtns() {
+            const rows = Array.from(inputsContainer.querySelectorAll('.input-row'));
+            rows.forEach((row, index) => {
+                const existing = row.querySelector('.trash-btn');
+                if (index === 0) {
+                    if (existing) existing.remove();
+                } else if (!existing) {
+                    row.appendChild(createTrashBtn());
+                }
+            });
+        }
+
+        // Добавляет новую строку
+        function addRow(value = '') {
+            const row = document.createElement('div');
+            row.className = 'input-row';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'system-input';
+            input.placeholder = 'Уравнение / неравенство';
+            input.value = value;
+
+            row.appendChild(input);
+            inputsContainer.appendChild(row);
+            refreshTrashBtns();
+        }
+
+        // Удаляет строку
+        function removeRow(row) {
+            if (!row) return;
+            if (inputsContainer.querySelectorAll('.input-row').length <= 1) {
+                showToast("Нужна хотя бы одна строка");
+                return;
+            }
+            row.remove();
+            refreshTrashBtns();
+        }
+
+        // Запрос на удаление с подтверждением (если в строке > 5 символов)
+        let pendingRow = null;
+
+        function requestDeleteRow(row) {
+            if (!row) return;
+            const input = row.querySelector('.system-input');
+            const text = (input?.value || '').trim();
+
+            if (text.length > 5) {
+                pendingRow = row;
+                const rowIndex = Array.from(inputsContainer.querySelectorAll('.input-row')).indexOf(row) + 1;
+                confirmText.textContent = `Вы уверены, что хотите удалить строку номер ${rowIndex}?`;
+                confirmModal.classList.add('active');
+            } else {
+                removeRow(row);
+            }
+        }
+
+        // Модалка подтверждения
+        confirmYesBtn.addEventListener('click', () => {
+            if (pendingRow) {
+                removeRow(pendingRow);
+                pendingRow = null;
+            }
+            confirmModal.classList.remove('active');
+        });
+
+        confirmNoBtn.addEventListener('click', () => {
+            pendingRow = null;
+            confirmModal.classList.remove('active');
+        });
+
+        closeConfirmBtn.addEventListener('click', () => {
+            pendingRow = null;
+            confirmModal.classList.remove('active');
+        });
+
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) {
+                pendingRow = null;
+                confirmModal.classList.remove('active');
+            }
+        });
+
+        // При загрузке страницы навешиваем корзины на существующие строки
+        refreshTrashBtns();
+
+        // Кнопка "Добавить строку"
+        addRowBtn.addEventListener('click', () => addRow());
+
+        // ===== МОДАЛЬНОЕ ОКНО ПОДСКАЗОК =====
+        helpBtn.addEventListener('click', () => helpModal.classList.add('active'));
+        closeHelpBtn.addEventListener('click', () => helpModal.classList.remove('active'));
+        okHelpBtn.addEventListener('click', () => helpModal.classList.remove('active'));
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) helpModal.classList.remove('active');
+        });
+
+        // ===== ПРИМЕРЫ =====
+        const EXAMPLES = [
+            {
+                title: 'Система линейных уравнений',
+                code: ['x + y = 5', 'x - y = 1']
+            },
+            {
+                title: 'Окружность и прямая',
+                code: ['x^2 + y^2 = 25', 'x + y = 7']
+            },
+            {
+                title: 'Квадратное уравнение',
+                code: ['x^2 - 5x + 6 = 0']
+            },
+            {
+                title: 'Кубическое уравнение',
+                code: ['x^3 - 6x^2 + 11x - 6 = 0']
+            },
+            {
+                title: 'Линейное неравенство',
+                code: ['2x + 5 > 10']
+            },
+            {
+                title: 'Система с дробью',
+                code: ['(x + 1) / (y - 2) = 3', 'x + y = 10']
+            },
+            {
+                title: 'Система из 3 переменных',
+                code: ['x + y + z = 6', 'x - y = 0', 'z = 2']
+            },
+            {
+                title: 'Двойное неравенство',
+                code: ['1 < x + 2', 'x + 2 < 5']
+            }
+        ];
+
+        function renderExamples() {
+            examplesList.innerHTML = '';
+            EXAMPLES.forEach(ex => {
+                const item = document.createElement('div');
+                item.className = 'example-item';
+
+                const title = document.createElement('strong');
+                title.textContent = ex.title;
+
+                const code = document.createElement('code');
+                code.textContent = ex.code.join('  |  ');
+
+                item.appendChild(title);
+                item.appendChild(code);
+
+                item.addEventListener('click', () => {
+                    loadExample(ex.code);
+                    examplesModal.classList.remove('active');
+                });
+
+                examplesList.appendChild(item);
+            });
+        }
+
+        function loadExample(codeArray) {
+            // Полностью пересобираем строки под пример
+            inputsContainer.innerHTML = '';
+            codeArray.forEach(line => {
+                const row = document.createElement('div');
+                row.className = 'input-row';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'system-input';
+                input.value = line;
+
+                row.appendChild(input);
+                inputsContainer.appendChild(row);
+            });
+            refreshTrashBtns();
+            document.getElementById('output').innerHTML = '';
+            showToast('Пример загружен — нажмите «Решить»');
+        }
+
+        renderExamples();
+
+        examplesBtn.addEventListener('click', () => examplesModal.classList.add('active'));
+        closeExamplesBtn.addEventListener('click', () => examplesModal.classList.remove('active'));
+        cancelExamplesBtn.addEventListener('click', () => examplesModal.classList.remove('active'));
+        examplesModal.addEventListener('click', (e) => {
+            if (e.target === examplesModal) examplesModal.classList.remove('active');
+        });
+
+        // ===== ОЧИСТИТЬ ВСЁ =====
+        clearBtn.addEventListener('click', () => {
+            document.querySelectorAll('.system-input').forEach(input => input.value = '');
+            document.getElementById('output').innerHTML = '';
+        });
+
+        // ===== ИНИЦИАЛИЗАЦИЯ PYODIDE =====
+        async function initPyodide() {
+            const statusEl = document.getElementById('status');
+            try {
+                pyodide = await loadPyodide();
+                statusEl.textContent = '📦 Загрузка пакета SymPy...';
+
+                await pyodide.loadPackage("sympy");
+
+                statusEl.textContent = '✅ Движок SymPy готов к работе!';
+                statusEl.classList.add('ready');
+                solveBtn.disabled = false;
+                solveBtn.textContent = 'Решить ✨';
+            } catch (err) {
+                statusEl.textContent = '❌ Ошибка инициализации Python';
+                statusEl.classList.add('error');
+                console.error(err);
+            }
+        }
+        initPyodide();
+
+        // ===== РЕШЕНИЕ =====
+        solveBtn.addEventListener('click', async () => {
+            const inputs = Array.from(document.querySelectorAll('.system-input'))
+                                .map(i => i.value.trim())
+                                .filter(v => v.length > 0);
+
+            const output = document.getElementById('output');
+
+            if (inputs.length === 0) {
+                output.innerHTML = '<div class="solver-card error-card">Заполните хотя бы одно поле!</div>';
+                return;
+            }
+
+            solveBtn.disabled = true;
+            solveBtn.textContent = '⏳ Обработка...';
+            output.innerHTML = '<div class="solver-card">Выполняем математический анализ...</div>';
+
+            const pythonCode = `
+import sympy as sp
+import json
+from sympy.parsing.sympy_parser import (
+    parse_expr, standard_transformations,
+    implicit_multiplication_application, convert_xor
+)
+
+eq_strings = ${JSON.stringify(inputs)}
+transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
+
+def parse_item(s):
+    s = s.strip()
+    for op, cls in [('>=', sp.GreaterThan), ('<=', sp.LessThan), ('>', sp.StrictGreaterThan), ('<', sp.StrictLessThan), ('=', sp.Eq)]:
+        if op in s:
+            l, r = s.split(op, 1)
+            return cls(parse_expr(l, transformations=transformations),
+                       parse_expr(r, transformations=transformations))
+    return sp.Eq(parse_expr(s, transformations=transformations), 0)
+
+try:
+    parsed_items = [parse_item(s) for s in eq_strings]
+    all_syms = sorted(set().union(*[item.free_symbols for item in parsed_items]), key=lambda s: s.name)
+
+    if not all_syms:
+        res = {"success": False, "error": "Не найдено переменных в выражении"}
+    else:
+        solutions = sp.solve(parsed_items, all_syms, dict=True)
+        res = {
+            "success": True,
+            "items_latex": [sp.latex(item) for item in parsed_items],
+            "solutions_latex": sp.latex(solutions) if solutions else "Нет\\\\ решений"
+        }
+except Exception as e:
+    res = {"success": False, "error": str(e)}
+
+json.dumps(res)
+`;
+
+            try {
+                const jsonRes = await pyodide.runPythonAsync(pythonCode);
+                const data = JSON.parse(jsonRes);
+
+                if (!data.success) {
+                    output.innerHTML = `<div class="solver-card error-card"><strong>Ошибка:</strong> ${data.error}<br><small>Нажмите «❓ Подсказка» для помощи по вводу.</small></div>`;
+                    return;
+                }
+
+                output.innerHTML = `
+                    <div class="solver-card">
+                        <h3 style="margin-bottom: 15px;">Результат решения:</h3>
+
+                        <div class="step-block">
+                            <div class="step-title">Введённая система:</div>
+                            <div id="step0" style="overflow-x: auto;"></div>
+                        </div>
+
+                        <div class="step-block">
+                            <div class="step-title">Решение:</div>
+                            <div id="step1" style="overflow-x: auto;"></div>
+                        </div>
+                    </div>
+                `;
+
+                const latexSystem = `\\begin{cases} ${data.items_latex.join(' \\\\ ')} \\end{cases}`;
+                katex.render(latexSystem, document.getElementById('step0'), { throwOnError: false });
+                katex.render(data.solutions_latex, document.getElementById('step1'), { throwOnError: false });
+
+            } catch (err) {
+                output.innerHTML = `<div class="solver-card error-card">Ошибка выполнения: ${err.message}</div>`;
+            } finally {
+                solveBtn.disabled = false;
+                solveBtn.textContent = 'Решить ✨';
+            }
+        });
+    </script>
+</body>
+</html>
