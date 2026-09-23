@@ -318,3 +318,9 @@ header {
 body.intro-locked {
     overflow: hidden;
 }
+
+/* ===== Цветовые варианты toast ===== */
+.toast.success { background: #22c55e; }   /* зелёный — успех */
+.toast.info    { background: #3b82f6; }   /* синий — инфо */
+.toast.warning { background: #f59e0b; }   /* жёлтый — предупреждение */
+/* .toast по умолчанию остаётся красным (error) */
