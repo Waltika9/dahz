@@ -59,6 +59,25 @@
             background: #fffde7;
         }
 
+/* ===== Номер строки слева от поля ===== */
+.row-number {
+    flex-shrink: 0;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #0f172a;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* Первая строка — номер скрыт, но занимает место (для выравнивания полей) */
+.row-number.is-hidden {
+    visibility: hidden;
+}
+
         /* ===== Кнопка-корзина справа от строки ===== */
         .trash-btn {
             flex-shrink: 0;
@@ -404,18 +423,28 @@ function showToast(message, type = 'error') {
             return btn;
         }
 
-        // Обновляет корзины: в первой строке её быть не должно, в остальных — должна быть
         function refreshTrashBtns() {
-            const rows = Array.from(inputsContainer.querySelectorAll('.input-row'));
-            rows.forEach((row, index) => {
-                const existing = row.querySelector('.trash-btn');
-                if (index === 0) {
-                    if (existing) existing.remove();
-                } else if (!existing) {
-                    row.appendChild(createTrashBtn());
-                }
-            });
+    const rows = Array.from(inputsContainer.querySelectorAll('.input-row'));
+    rows.forEach((row, index) => {
+        // === Номер строки ===
+        let numEl = row.querySelector('.row-number');
+        if (!numEl) {
+            numEl = document.createElement('span');
+            numEl.className = 'row-number';
+            row.insertBefore(numEl, row.firstChild);
         }
+        numEl.textContent = index + 1;
+        // Первая строка — номер скрыт (но занимает место, чтобы поля не съезжали)
+
+        // === Корзина ===
+        const existing = row.querySelector('.trash-btn');
+        if (index === 0) {
+            if (existing) existing.remove();
+        } else if (!existing) {
+            row.appendChild(createTrashBtn());
+        }
+    });
+}
 
         // Добавляет новую строку
         function addRow(value = '') {
