@@ -373,14 +373,14 @@
         const toast = document.getElementById('toast');
         let toastTimeout;
 
-        function showToast(message) {
-            clearTimeout(toastTimeout);
-            toast.textContent = message;
-            toast.classList.add('show');
-            toastTimeout = setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
+function showToast(message) {
+    clearTimeout(toastTimeout);
+    toast.textContent = message;
+    toast.classList.add('show');
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
 
         // ===== УПРАВЛЕНИЕ СТРОКАМИ =====
 
