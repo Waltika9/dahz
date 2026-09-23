@@ -373,10 +373,10 @@
         const toast = document.getElementById('toast');
         let toastTimeout;
 
-function showToast(message) {
+function showToast(message, type = 'error') {
     clearTimeout(toastTimeout);
     toast.textContent = message;
-    toast.classList.add('show');
+    toast.className = 'toast show ' + type;
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
     }, 3000);
