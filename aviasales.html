@@ -1,0 +1,2262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск авиабилетов | Waltika Projects</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+
+    <!-- Стили главного сайта (.btn, .toast, шапка) -->
+    <link rel="stylesheet" href="../style.css?v=5">
+
+    <!-- D3 (рисование карты) и TopoJSON (формат карты мира) -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+
+    <style>
+        :root {
+            --ink: #0f172a;
+            --muted: #475569;
+            --sky-top: #7dd3fc;
+            --sky-mid: #bae6fd;
+            --sky-low: #f0f9ff;
+            --sun: #fde047;
+            --paper: #ffffff;
+            --tile: #111827;
+        }
+
+        /* Страница шире, чем на главной — билету и карте нужно место */
+        body {
+            max-width: 980px;
+            background: transparent;
+            overflow-x: hidden;
+        }
+
+        /* ===== НЕБО И ОБЛАКА (фон) ===== */
+        .sky {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+            background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 35%, var(--sky-low) 75%, #f8fafc 100%);
+            pointer-events: none;
+        }
+
+        .sun {
+            position: absolute;
+            top: 60px;
+            right: 8%;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: var(--sun);
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0 #000, 0 0 60px 20px rgba(253, 224, 71, 0.5);
+            animation: sun-pulse 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes sun-pulse {
+            to { box-shadow: 4px 4px 0 #000, 0 0 90px 35px rgba(253, 224, 71, 0.55); }
+        }
+
+        /* Облако «в стиле сайта»: белое, с чёрной рамкой и жёсткой тенью */
+        .cloud {
+            position: absolute;
+            left: 0;
+            width: 150px;
+            height: 44px;
+            background: #fff;
+            border: 3px solid #000;
+            border-radius: 40px;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.85);
+            animation: drift linear infinite;
+        }
+
+        .cloud::before,
+        .cloud::after {
+            content: '';
+            position: absolute;
+            background: #fff;
+            border: 3px solid #000;
+            border-bottom: none;
+            border-radius: 50% 50% 0 0;
+        }
+
+        .cloud::before { width: 60px; height: 34px; left: 22px; top: -26px; }
+        .cloud::after  { width: 44px; height: 26px; left: 72px; top: -18px; }
+
+        .cloud:nth-child(2) { top: 110px; animation-duration: 70s; animation-delay: -10s; }
+        .cloud:nth-child(3) { top: 260px; animation-duration: 95s; animation-delay: -60s; transform: scale(0.7); }
+        .cloud:nth-child(4) { top: 420px; animation-duration: 80s; animation-delay: -35s; }
+        .cloud:nth-child(5) { top: 620px; animation-duration: 110s; animation-delay: -80s; }
+
+        @keyframes drift {
+            from { translate: -220px 0; }
+            to   { translate: calc(100vw + 40px) 0; }
+        }
+
+        /* ===== ПОЯВЛЕНИЕ БЛОКОВ ===== */
+        /* backwards — после появления анимация не мешает эффектам при наведении */
+        .reveal {
+            animation: fade-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+            animation-delay: var(--d, 0s);
+        }
+
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(24px); }
+        }
+
+        /* ===== ЗАГОЛОВОК ===== */
+        .hero {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 6vw, 3.2rem);
+            font-weight: 900;
+            letter-spacing: -1px;
+            line-height: 1.1;
+        }
+
+        .hero h1 .accent {
+            display: inline-block;
+            padding: 0 10px;
+            background: var(--sun);
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0 #000;
+            transform: rotate(-2deg);
+        }
+
+        .hero p {
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 1.05rem;
+        }
+
+        /* ===== КАРТА МИРА ===== */
+        .map-card {
+            position: relative;
+            margin-bottom: 30px;
+            border: 3px solid #000;
+            box-shadow: 6px 6px 0 #000;
+            background: #bae6fd;
+            overflow: hidden;
+        }
+
+        #map {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 2 / 1;
+        }
+
+        #map .ocean     { fill: #bae6fd; }
+        #map .graticule { fill: none; stroke: rgba(15, 23, 42, 0.12); stroke-width: 0.6; }
+        #map .land      { fill: #fff; stroke: #000; stroke-width: 0.5; stroke-linejoin: round; }
+
+        #map .route-glow {
+            fill: none;
+            stroke: var(--sun);
+            stroke-width: 8;
+            stroke-linecap: round;
+            opacity: 0.8;
+        }
+
+        #map .route {
+            fill: none;
+            stroke: #000;
+            stroke-width: 2.5;
+            stroke-dasharray: 7 7;
+            stroke-linecap: round;
+            animation: march 0.9s linear infinite;
+        }
+
+        @keyframes march { to { stroke-dashoffset: -14; } }
+
+        /* Карту можно тянуть мышкой и пальцем */
+        #map { cursor: grab; touch-action: none; }
+        #map.dragging { cursor: grabbing; }
+
+        /* При увеличении линии остаются той же толщины */
+        #map path { vector-effect: non-scaling-stroke; }
+
+        /* Кнопки масштаба */
+        .zoom-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 2;
+        }
+
+        .zoom-controls button {
+            width: 38px;
+            height: 38px;
+            border: 3px solid #000;
+            background: #fff;
+            box-shadow: 3px 3px 0 #000;
+            font-size: 1.3rem;
+            font-weight: 900;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .zoom-controls button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0 #000;
+            background: var(--sun);
+        }
+
+        .zoom-controls button:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #000;
+        }
+
+        /* Точки городов: по ним можно кликнуть */
+
+        #map .city-dot {
+            fill: #000;
+            stroke: #fff;
+            stroke-width: 1.5;
+            cursor: pointer;
+            transition: r 0.15s ease, fill 0.15s ease;
+        }
+
+        #map .city-dot:hover { r: 7; fill: #ef4444; }
+
+        #map .hover-label {
+            font: 800 13px system-ui, sans-serif;
+            fill: #000;
+            paint-order: stroke;
+            stroke: #fff;
+            stroke-width: 4px;
+            stroke-linejoin: round;
+            pointer-events: none;
+        }
+
+        #map .pin circle { fill: #fff; stroke: #000; stroke-width: 3; }
+        #map .pin.to circle { fill: var(--sun); }
+
+        #map .pin text,
+        #map .me text {
+            font: 800 14px Consolas, monospace;
+            fill: #000;
+            paint-order: stroke;
+            stroke: #fff;
+            stroke-width: 4px;
+            stroke-linejoin: round;
+        }
+
+        #map .me .dot { fill: #ef4444; stroke: #000; stroke-width: 2; }
+
+        #map .me .pulse {
+            fill: #ef4444;
+            opacity: 0.5;
+            transform-box: fill-box;
+            transform-origin: center;
+            animation: pulse 1.8s ease-out infinite;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 0.55; }
+            to   { transform: scale(4); opacity: 0; }
+        }
+
+        .map-info {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 6px 14px;
+            padding: 10px 14px;
+            background: #fff;
+            border-top: 3px solid #000;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .map-info .muted { color: var(--muted); font-weight: 600; }
+
+        .map-loading {
+            position: absolute;
+            inset: 0 0 auto 0;
+            aspect-ratio: 2 / 1;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            color: var(--muted);
+        }
+
+        .map-loading[hidden] { display: none; }
+
+        /* ===== ПОСАДОЧНЫЙ ТАЛОН ===== */
+        .ticket {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            background: var(--paper);
+            border: 3px solid #000;
+            box-shadow: 8px 8px 0 #000;
+            margin: 10px 0 40px;
+        }
+
+        .ticket-main { padding: 22px 24px; }
+
+        .ticket-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #000;
+            font: 800 0.85rem Consolas, monospace;
+            letter-spacing: 2px;
+        }
+
+        .airline::before { content: '✈ '; }
+
+        .ticket-type {
+            background: #000;
+            color: #fff;
+            padding: 3px 8px;
+        }
+
+        .label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        /* Маршрут: ALA ✈ IST */
+        .route {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: start;   /* коды на одной высоте */
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .point .city {
+            margin-top: 6px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            max-width: 170px;
+        }
+
+        .point.to { text-align: right; }
+        .point.to .flap { justify-content: flex-end; }
+        .point.to .city { margin-left: auto; }
+
+        /* Табло с перелистывающимися буквами */
+        .flap {
+            display: flex;
+            gap: 4px;
+        }
+
+        .flap span {
+            position: relative;
+            width: 38px;
+            height: 50px;
+            display: grid;
+            place-items: center;
+            background: var(--tile);
+            color: #fff;
+            border: 2px solid #000;
+            box-shadow: 2px 2px 0 #000;
+            font: 800 1.9rem Consolas, 'Courier New', monospace;
+            transform-origin: center;
+        }
+
+        /* Линия-«шов» посередине плитки, как у настоящего табло */
+        .flap span::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 2px;
+            background: rgba(0, 0, 0, 0.75);
+        }
+
+        .flap span.flip { animation: flip 0.09s ease-in-out; }
+
+        @keyframes flip {
+            50% { transform: scaleY(0.1); background: #1f2937; }
+        }
+
+        .route-mid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .route-line {
+            position: relative;
+            width: 100%;
+            height: 30px;
+            border-bottom: 3px dashed #000;
+        }
+
+        /* Самолётик: появляется слева, летит вправо и исчезает.
+           По пути плавно сменяются 🛫 (взлёт) → ✈️ (полёт) → 🛬 (посадка) */
+        .route-line .mini-plane {
+            position: absolute;
+            bottom: -14px;
+            left: 0;
+            width: 26px;
+            height: 26px;
+            font-size: 1.4rem;
+            line-height: 26px;
+            animation: fly-across 4s ease-in-out infinite;
+        }
+
+        .mini-plane span {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            animation: 4s ease-in-out infinite;
+        }
+
+        .mini-plane .p-up   { animation-name: plane-up; }
+        .mini-plane .p-mid  { animation-name: plane-mid; }
+        .mini-plane .p-down { animation-name: plane-down; }
+
+        @keyframes fly-across {
+            0%   { left: 0; opacity: 0; }
+            12%  { opacity: 1; }
+            88%  { opacity: 1; }
+            100% { left: calc(100% - 26px); opacity: 0; }
+        }
+
+        @keyframes plane-up {
+            0%, 22%   { opacity: 1; }
+            34%, 100% { opacity: 0; }
+        }
+
+        @keyframes plane-mid {
+            0%, 22%   { opacity: 0; }
+            34%, 66%  { opacity: 1; }
+            78%, 100% { opacity: 0; }
+        }
+
+        @keyframes plane-down {
+            0%, 66%   { opacity: 0; }
+            78%, 100% { opacity: 1; }
+        }
+
+        /* Кнопка «поменять местами» */
+        .swap-btn {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #000;
+            background: #fff;
+            box-shadow: 3px 3px 0 #000;
+            font-size: 1.2rem;
+            font-weight: 900;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .swap-btn:hover {
+            background: var(--sun);
+            transform: rotate(180deg);
+            box-shadow: 4px 4px 0 #000;
+        }
+
+        /* Поля ввода */
+        .field { margin-bottom: 16px; }
+
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .field label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }
+
+        .field .opt {
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        .input {
+            width: 100%;
+            padding: 11px 13px;
+            border: 3px solid #000;
+            background: #fff;
+            box-shadow: 3px 3px 0 #000;
+            font-size: 1rem;
+            color: var(--ink);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .input:focus {
+            outline: none;
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0 #000;
+            background: #fffde7;
+        }
+
+        .input.shake { animation: shake 0.4s ease; background: #fee2e2; }
+
+        @keyframes shake {
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        /* Выпадающий список городов */
+        .combo { position: relative; }
+
+        .suggestions {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            z-index: 20;
+            list-style: none;
+            background: #fff;
+            border: 3px solid #000;
+            box-shadow: 5px 5px 0 #000;
+            max-height: 290px;
+            overflow-y: auto;
+            animation: drop 0.15s ease-out;
+        }
+
+        .suggestions[hidden] { display: none; }
+
+        @keyframes drop {
+            from { opacity: 0; transform: translateY(-6px); }
+        }
+
+        .suggestions li {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            cursor: pointer;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .suggestions li:last-child { border-bottom: none; }
+
+        .suggestions li.active,
+        .suggestions li:hover { background: #e0f2fe; }
+
+        .suggestions .s-name { font-weight: 700; }
+
+        .suggestions .s-country {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .suggestions .s-code {
+            font: 800 0.85rem Consolas, monospace;
+            background: var(--tile);
+            color: #fff;
+            padding: 3px 7px;
+        }
+
+        .suggestions mark {
+            background: var(--sun);
+            color: inherit;
+        }
+
+        .suggestions .s-hint {
+            display: block;
+            font-size: 0.75rem;
+            color: #b45309;
+        }
+
+        /* Быстрые даты */
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: -4px 0 16px;
+        }
+
+        .chip {
+            border: 2px solid #000;
+            background: #fff;
+            box-shadow: 2px 2px 0 #000;
+            padding: 4px 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .chip:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0 #000;
+            background: var(--sun);
+        }
+
+        .chip:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #000;
+        }
+
+        /* Пассажиры слева, «Сбросить всё» справа */
+        .pax-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
+        .reset-btn {
+            padding: 9px 14px;
+            border: 3px solid #000;
+            background: #fee2e2;
+            box-shadow: 3px 3px 0 #000;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .reset-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0 #000;
+            background: #fca5a5;
+        }
+
+        .reset-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #000;
+        }
+
+        /* Счётчик пассажиров */
+        .stepper {
+            display: inline-flex;
+            align-items: stretch;
+            border: 3px solid #000;
+            box-shadow: 3px 3px 0 #000;
+            background: #fff;
+        }
+
+        .stepper button {
+            width: 44px;
+            border: none;
+            background: #fff;
+            font-size: 1.3rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .stepper button:hover:not(:disabled) { background: var(--sun); }
+        .stepper button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .stepper output {
+            display: grid;
+            place-items: center;
+            min-width: 64px;
+            padding: 8px 0;
+            border-left: 3px solid #000;
+            border-right: 3px solid #000;
+            font: 800 1.1rem Consolas, monospace;
+        }
+
+        .stepper output.bump { animation: bump 0.25s ease; }
+
+        @keyframes bump { 50% { transform: scale(1.35); } }
+
+        /* ===== ОТРЫВНОЙ КОРЕШОК ===== */
+        .ticket-stub {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 22px 20px;
+            border-left: 3px dashed #000;
+            background: #f0f9ff;
+        }
+
+        .stub-row b {
+            font: 800 1.05rem Consolas, monospace;
+            word-break: break-word;
+        }
+
+        .barcode {
+            height: 56px;
+            margin-top: auto;
+            border: 2px solid #000;
+            background:
+                repeating-linear-gradient(90deg,
+                    #000 0 2px, transparent 2px 4px,
+                    #000 4px 7px, transparent 7px 9px,
+                    #000 9px 10px, transparent 10px 13px,
+                    #000 13px 16px, transparent 16px 18px),
+                #fff;
+        }
+
+        .search-btn {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            padding: 14px 10px;
+            border: 3px solid #000;
+            background: var(--sun);
+            box-shadow: 4px 4px 0 #000;
+            font-size: 1.05rem;
+            font-weight: 900;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .search-btn:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 7px 7px 0 #000;
+        }
+
+        .search-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #000;
+        }
+
+        .search-btn .btn-plane {
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+
+        .search-btn:hover .btn-plane { transform: translateX(4px) rotate(-12deg); }
+
+        /* Самолёт в кнопке «взлетает» */
+        .search-btn.takeoff .btn-plane {
+            animation: takeoff 0.6s cubic-bezier(0.5, 0, 0.9, 0.4) forwards;
+        }
+
+        @keyframes takeoff {
+            to { transform: translate(180px, -60px) rotate(-25deg) scale(1.4); opacity: 0; }
+        }
+
+        .fallback-link {
+            font-weight: 800;
+            color: var(--ink);
+            text-align: center;
+        }
+
+        .fallback-link[hidden] { display: none; }
+
+        /* Штамп «ВЫЛЕТАЕМ!» */
+        .stamp {
+            position: absolute;
+            top: 50%;
+            left: 40%;
+            z-index: 5;
+            padding: 8px 18px;
+            border: 5px solid #dc2626;
+            color: #dc2626;
+            font: 900 2.2rem Consolas, monospace;
+            letter-spacing: 3px;
+            background: rgba(255, 255, 255, 0.85);
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -50%) rotate(-14deg) scale(2.5);
+        }
+
+        .stamp.show { animation: stamp 1.8s cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards; }
+
+        @keyframes stamp {
+            0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-14deg) scale(2.5); }
+            18%  { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(1); }
+            80%  { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) rotate(-14deg) scale(1); }
+        }
+
+        /* ===== ПОПУЛЯРНЫЕ НАПРАВЛЕНИЯ ===== */
+        h2.section {
+            display: inline-block;
+            margin-bottom: 16px;
+            padding: 6px 14px;
+            background: #fff;
+            border: 3px solid #000;
+            box-shadow: 3px 3px 0 #000;
+            font-size: 1.1rem;
+        }
+
+        .dest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(200px, 42vw), 1fr));
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .dest {
+            position: relative;
+            text-align: left;
+            padding: 16px;
+            border: 3px solid #000;
+            background: var(--c, #fff);
+            box-shadow: 4px 4px 0 #000;
+            cursor: pointer;
+            font: inherit;
+            color: inherit;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .dest:hover {
+            transform: translate(-3px, -3px) rotate(-1deg);
+            box-shadow: 7px 7px 0 #000;
+        }
+
+        .dest:active {
+            transform: translate(1px, 1px);
+            box-shadow: 2px 2px 0 #000;
+        }
+
+        .dest .d-emoji {
+            display: inline-block;
+            font-size: 2rem;
+            transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+        }
+
+        .dest:hover .d-emoji { transform: scale(1.25) rotate(8deg); }
+
+        .dest .d-code {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            font: 800 0.85rem Consolas, monospace;
+            background: #000;
+            color: #fff;
+            padding: 3px 7px;
+        }
+
+        .dest .d-name {
+            display: block;
+            margin-top: 8px;
+            font-size: 1.15rem;
+            font-weight: 900;
+        }
+
+        .dest .d-tag {
+            display: block;
+            font-size: 0.85rem;
+            color: #1e293b;
+        }
+
+        /* ===== НЕДАВНИЕ ПОИСКИ ===== */
+        .recent[hidden] { display: none; }
+
+        .recent-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 40px;
+        }
+
+        .recent-list .chip {
+            font: 700 0.9rem Consolas, monospace;
+            padding: 6px 12px;
+        }
+
+        /* ===== БАННЕР ДЛЯ МАДИ (внизу, спокойный) ===== */
+        .madi-banner {
+            display: block;
+            margin-bottom: 16px;
+            padding: 10px 16px;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0 #000;
+            background: repeating-linear-gradient(-45deg, var(--sun) 0 18px, #facc15 18px 36px);
+            color: #000;
+            font-weight: 800;
+            text-align: center;
+            text-decoration: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .madi-banner:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000;
+        }
+
+        /* ===== ПОДВАЛ ===== */
+        .disclaimer {
+            text-align: center;
+            margin: 0 0 20px;
+            padding: 12px;
+            border: 3px dashed #000;
+            background: #fff;
+            color: #a16207;
+            font-weight: 700;
+        }
+
+        /* ===== МОБИЛЬНЫЕ ===== */
+        @media (max-width: 720px) {
+            .ticket { grid-template-columns: 1fr; }
+
+            .ticket-stub {
+                border-left: none;
+                border-top: 3px dashed #000;
+            }
+
+            .barcode { height: 44px; }
+            .stamp { left: 50%; font-size: 1.7rem; }
+            .sun { width: 60px; height: 60px; top: 90px; }
+            #map { aspect-ratio: 3 / 2; }
+            .map-loading { aspect-ratio: 3 / 2; }
+            .zoom-controls { top: 8px; right: 8px; gap: 6px; }
+            .zoom-controls button { width: 34px; height: 34px; }
+        }
+
+        @media (max-width: 480px) {
+            .ticket-main { padding: 18px 16px; }
+            .field-row { grid-template-columns: 1fr; gap: 0; }
+            .flap span { width: 30px; height: 42px; font-size: 1.5rem; }
+            .route { gap: 8px; }
+            .route-mid { margin-top: 8px; }
+            .dest-grid { gap: 12px; }
+            .dest { padding: 12px; }
+            .dest .d-name { font-size: 1rem; }
+            .dest .d-tag { font-size: 0.78rem; }
+        }
+
+        /* Кто отключил анимации в системе — показываем всё сразу */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Небо, солнце и облака -->
+    <div class="sky" aria-hidden="true">
+        <div class="sun"></div>
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+    </div>
+
+    <header class="reveal">
+        <div class="welcome-text">✈️ Поиск авиабилетов</div>
+        <a href="../index.html" class="btn">← На главную</a>
+    </header>
+
+    <section class="hero reveal" style="--d: 0.05s">
+        <h1>Куда <span class="accent">летим?</span></h1>
+        <p>Выбери города — дешёвые билеты найдёт Aviasales.</p>
+    </section>
+
+    <!-- ===== КАРТА МИРА ===== -->
+    <div class="map-card reveal" style="--d: 0.1s">
+        <svg id="map" viewBox="0 0 960 480" role="img" aria-label="Карта мира с маршрутом"></svg>
+        <div class="map-loading" id="mapLoading">🌍 Загружаем карту...</div>
+        <div class="zoom-controls">
+            <button type="button" id="zoomIn" aria-label="Приблизить" title="Приблизить">+</button>
+            <button type="button" id="zoomOut" aria-label="Отдалить" title="Отдалить">−</button>
+            <button type="button" id="zoomReset" aria-label="Показать весь маршрут" title="Сбросить масштаб">⟲</button>
+        </div>
+        <div class="map-info">
+            <span id="mapRoute">👆 Нажми на точку на карте или выбери город ниже</span>
+            <span class="muted" id="mapMe">📍 Определяем, где вы...</span>
+        </div>
+    </div>
+
+    <!-- ===== ПОСАДОЧНЫЙ ТАЛОН = ФОРМА ПОИСКА ===== -->
+    <form class="ticket reveal" id="searchForm" style="--d: 0.2s" novalidate autocomplete="off">
+        <div class="ticket-main">
+            <div class="ticket-head">
+                <span class="airline">WALTIKA AIR</span>
+                <span class="ticket-type">BOARDING PASS</span>
+            </div>
+
+            <div class="route">
+                <div class="point">
+                    <span class="label">Откуда</span>
+                    <div class="flap" id="fromFlap" data-value="ALA"><span>A</span><span>L</span><span>A</span></div>
+                    <div class="city" id="fromCityName">Алматы, Казахстан</div>
+                </div>
+
+                <div class="route-mid">
+                    <div class="route-line" aria-hidden="true"><span class="mini-plane"><span class="p-up">🛫</span><span class="p-mid">✈️</span><span class="p-down">🛬</span></span></div>
+                    <button type="button" class="swap-btn" id="swapBtn" title="Поменять местами" aria-label="Поменять города местами">⇄</button>
+                </div>
+
+                <div class="point to">
+                    <span class="label">Куда</span>
+                    <div class="flap" id="toFlap" data-value="???"><span>?</span><span>?</span><span>?</span></div>
+                    <div class="city" id="toCityName">выберите город</div>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="from-input">Откуда</label>
+                    <div class="combo">
+                        <input type="text" id="from-input" class="input" value="Алматы" placeholder="Город вылета"
+                               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fromList">
+                        <ul id="fromList" class="suggestions" role="listbox" hidden></ul>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="city-input">Куда</label>
+                    <div class="combo">
+                        <input type="text" id="city-input" class="input" placeholder="Город, страна или код"
+                               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cityList">
+                        <ul id="cityList" class="suggestions" role="listbox" hidden></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="depart-date">Дата вылета</label>
+                    <input type="date" id="depart-date" class="input" required>
+                </div>
+                <div class="field">
+                    <label for="return-date">Обратно <span class="opt">(необязательно)</span></label>
+                    <input type="date" id="return-date" class="input">
+                </div>
+            </div>
+
+            <div class="chips" aria-label="Быстрый выбор даты">
+                <button type="button" class="chip" data-days="1">Завтра</button>
+                <button type="button" class="chip" data-days="7">Через неделю</button>
+                <button type="button" class="chip" data-days="30">Через месяц</button>
+                <button type="button" class="chip" id="noReturnBtn">Без обратного</button>
+            </div>
+
+            <div class="field pax-row">
+                <div>
+                <span class="label">Пассажиры</span>
+                <div class="stepper">
+                    <button type="button" id="paxMinus" aria-label="Меньше пассажиров">−</button>
+                    <output id="paxValue" aria-live="polite">1</output>
+                    <button type="button" id="paxPlus" aria-label="Больше пассажиров">+</button>
+                </div>
+                </div>
+                <button type="button" class="reset-btn" id="resetBtn">🧹 Сбросить всё</button>
+            </div>
+        </div>
+
+        <div class="ticket-stub">
+            <div class="stub-row"><span class="label">Рейс</span><b id="stubRoute">ALA → ???</b></div>
+            <div class="stub-row"><span class="label">Дата</span><b id="stubDate">—</b></div>
+            <div class="stub-row"><span class="label">Пассажиры</span><b id="stubPax">1</b></div>
+            <div class="barcode" aria-hidden="true"></div>
+            <button type="submit" class="search-btn" id="searchBtn"><span class="btn-plane">✈</span> Найти билеты</button>
+            <a class="fallback-link" id="fallbackLink" href="#" target="_blank" rel="noopener" hidden>Открыть результаты →</a>
+        </div>
+
+        <div class="stamp" id="stamp" aria-hidden="true">ВЫЛЕТАЕМ!</div>
+    </form>
+
+    <!-- ===== ПОПУЛЯРНЫЕ НАПРАВЛЕНИЯ ===== -->
+    <section class="reveal" style="--d: 0.3s">
+        <h2 class="section">🔥 Популярные направления</h2>
+        <div class="dest-grid" id="destGrid"></div>
+    </section>
+
+    <!-- ===== НЕДАВНИЕ ПОИСКИ ===== -->
+    <section class="recent" id="recentBox" hidden>
+        <h2 class="section">🕓 Вы недавно искали</h2>
+        <div class="recent-list" id="recentList"></div>
+    </section>
+
+    <a class="madi-banner" href="https://youtu.be/dQw4w9WgXcQ?si=SwMcjsZaXsHTKnhP" target="_blank" rel="noopener">
+        ⚠️ ВНИМАНИЕ! Если вас зовут Мади, нажмите сюда!!!
+    </a>
+
+    <p class="disclaimer">Сайт создан без поддержки :( Ваши права не защищены.</p>
+
+    <div id="toast" class="toast">Уведомление</div>
+
+    <script>
+        // ===== ГОРОДА =====
+        // Формат строки: Название | код IATA | страна | широта | долгота | другие названия через запятую
+        // Код города (MOW, LON, TYO...) Aviasales понимает так же, как код аэропорта.
+        const CITY_DATA = `
+Алматы|ALA|Казахстан|43.24|76.89|almaty,алма-ата,казахстан
+Астана|NQZ|Казахстан|51.17|71.43|astana,нур-султан,акмола
+Шымкент|CIT|Казахстан|42.34|69.59|shymkent,чимкент
+Актау|SCO|Казахстан|43.65|51.17|aktau
+Атырау|GUW|Казахстан|47.11|51.92|atyrau
+Актобе|AKX|Казахстан|50.28|57.21|aktobe,актюбинск
+Караганда|KGF|Казахстан|49.80|73.10|karaganda,караганды
+Усть-Каменогорск|UKK|Казахстан|49.95|82.61|оскемен,ust-kamenogorsk
+Семей|PLX|Казахстан|50.41|80.23|semey,семипалатинск
+Павлодар|PWQ|Казахстан|52.29|76.95|pavlodar
+Тараз|DMB|Казахстан|42.90|71.37|taraz
+Костанай|KSN|Казахстан|53.21|63.63|kostanay
+Кызылорда|KZO|Казахстан|44.85|65.51|kyzylorda
+Петропавловск|PPK|Казахстан|54.87|69.15|petropavl,петропавл
+Уральск|URA|Казахстан|51.23|51.37|uralsk,орал
+Жезказган|DZN|Казахстан|47.79|67.71|zhezkazgan
+Талдыкорган|TDK|Казахстан|45.02|78.37|taldykorgan
+Кокшетау|KOV|Казахстан|53.28|69.40|kokshetau
+Туркестан|HSA|Казахстан|43.30|68.25|turkistan
+Москва|MOW|Россия|55.75|37.62|moscow,россия
+Санкт-Петербург|LED|Россия|59.94|30.31|питер,спб,saint petersburg
+Новосибирск|OVB|Россия|55.03|82.92|novosibirsk
+Екатеринбург|SVX|Россия|56.84|60.61|yekaterinburg
+Казань|KZN|Россия|55.79|49.12|kazan
+Сочи|AER|Россия|43.60|39.73|sochi
+Омск|OMS|Россия|54.99|73.37|omsk
+Калининград|KGD|Россия|54.71|20.51|kaliningrad
+Владивосток|VVO|Россия|43.12|131.89|vladivostok
+Ташкент|TAS|Узбекистан|41.30|69.24|tashkent,узбекистан
+Самарканд|SKD|Узбекистан|39.65|66.96|samarkand
+Бухара|BHK|Узбекистан|39.77|64.42|bukhara
+Бишкек|FRU|Кыргызстан|42.87|74.59|bishkek,кыргызстан,киргизия
+Ош|OSS|Кыргызстан|40.53|72.80|osh
+Душанбе|DYU|Таджикистан|38.56|68.77|dushanbe,таджикистан
+Ашхабад|ASB|Туркменистан|37.96|58.33|ashgabat,туркменистан
+Тбилиси|TBS|Грузия|41.72|44.79|tbilisi,грузия
+Батуми|BUS|Грузия|41.64|41.64|batumi
+Кутаиси|KUT|Грузия|42.27|42.70|kutaisi
+Ереван|EVN|Армения|40.18|44.51|yerevan,армения
+Баку|GYD|Азербайджан|40.41|49.87|baku,азербайджан
+Минск|MSQ|Беларусь|53.90|27.56|minsk,беларусь
+Кишинёв|KIV|Молдова|47.01|28.86|chisinau,молдова
+Стамбул|IST|Турция|41.01|28.98|istanbul,турция
+Анталья|AYT|Турция|36.90|30.70|antalya,анталия
+Анкара|ANK|Турция|39.93|32.86|ankara
+Измир|IZM|Турция|38.42|27.14|izmir
+Бодрум|BJV|Турция|37.04|27.43|bodrum
+Даламан|DLM|Турция|36.77|28.80|dalaman
+Дубай|DXB|ОАЭ|25.20|55.27|dubai,оаэ,эмираты
+Абу-Даби|AUH|ОАЭ|24.45|54.38|abu dhabi
+Шарджа|SHJ|ОАЭ|25.35|55.42|sharjah
+Доха|DOH|Катар|25.29|51.53|doha,катар
+Эр-Рияд|RUH|Саудовская Аравия|24.71|46.68|riyadh,саудовская аравия
+Джидда|JED|Саудовская Аравия|21.49|39.19|jeddah
+Медина|MED|Саудовская Аравия|24.47|39.61|medina
+Маскат|MCT|Оман|23.59|58.41|muscat,оман
+Бахрейн|BAH|Бахрейн|26.23|50.59|bahrain,манама
+Кувейт|KWI|Кувейт|29.38|47.99|kuwait
+Тель-Авив|TLV|Израиль|32.09|34.78|tel aviv,израиль
+Амман|AMM|Иордания|31.95|35.93|amman,иордания
+Тегеран|THR|Иран|35.69|51.39|tehran,иран
+Каир|CAI|Египет|30.04|31.24|cairo,египет
+Шарм-эль-Шейх|SSH|Египет|27.92|34.33|sharm el sheikh,шарм
+Хургада|HRG|Египет|27.26|33.81|hurghada
+Пекин|BJS|Китай|39.90|116.41|beijing,китай
+Шанхай|SHA|Китай|31.23|121.47|shanghai
+Гуанчжоу|CAN|Китай|23.13|113.26|guangzhou
+Урумчи|URC|Китай|43.83|87.62|urumqi
+Санья|SYX|Китай|18.25|109.51|sanya,хайнань
+Гонконг|HKG|Гонконг|22.32|114.17|hong kong
+Тайбэй|TPE|Тайвань|25.03|121.57|taipei,тайвань
+Сеул|SEL|Южная Корея|37.57|126.98|seoul,корея,южная корея
+Пусан|PUS|Южная Корея|35.18|129.08|busan
+Токио|TYO|Япония|35.68|139.69|tokyo,япония
+Осака|OSA|Япония|34.69|135.50|osaka
+Улан-Батор|ULN|Монголия|47.89|106.91|ulaanbaatar,монголия
+Бангкок|BKK|Таиланд|13.76|100.50|bangkok,таиланд,тайланд
+Пхукет|HKT|Таиланд|7.88|98.39|phuket
+Ханой|HAN|Вьетнам|21.03|105.85|hanoi,вьетнам
+Хошимин|SGN|Вьетнам|10.82|106.63|ho chi minh,сайгон
+Нячанг|CXR|Вьетнам|12.24|109.19|nha trang
+Сингапур|SIN|Сингапур|1.35|103.82|singapore
+Куала-Лумпур|KUL|Малайзия|3.14|101.69|kuala lumpur,малайзия
+Бали|DPS|Индонезия|-8.65|115.22|bali,денпасар,индонезия
+Джакарта|JKT|Индонезия|-6.21|106.85|jakarta
+Манила|MNL|Филиппины|14.60|120.98|manila,филиппины
+Дели|DEL|Индия|28.61|77.21|delhi,нью-дели,индия
+Мумбаи|BOM|Индия|19.08|72.88|mumbai,бомбей
+Гоа|GOI|Индия|15.38|73.83|goa
+Мале|MLE|Мальдивы|4.18|73.51|male,мальдивы
+Коломбо|CMB|Шри-Ланка|6.93|79.86|colombo,шри-ланка
+Катманду|KTM|Непал|27.72|85.32|kathmandu,непал
+Лондон|LON|Великобритания|51.51|-0.13|london,англия,великобритания
+Париж|PAR|Франция|48.86|2.35|paris,франция
+Ницца|NCE|Франция|43.70|7.27|nice
+Берлин|BER|Германия|52.52|13.40|berlin,германия
+Мюнхен|MUC|Германия|48.14|11.58|munich
+Франкфурт|FRA|Германия|50.11|8.68|frankfurt
+Рим|ROM|Италия|41.90|12.50|rome,италия
+Милан|MIL|Италия|45.46|9.19|milan
+Венеция|VCE|Италия|45.44|12.32|venice
+Мадрид|MAD|Испания|40.42|-3.70|madrid,испания
+Барселона|BCN|Испания|41.39|2.17|barcelona
+Лиссабон|LIS|Португалия|38.72|-9.14|lisbon,португалия
+Амстердам|AMS|Нидерланды|52.37|4.90|amsterdam,нидерланды,голландия
+Брюссель|BRU|Бельгия|50.85|4.35|brussels,бельгия
+Вена|VIE|Австрия|48.21|16.37|vienna,австрия
+Прага|PRG|Чехия|50.08|14.44|prague,чехия
+Будапешт|BUD|Венгрия|47.50|19.04|budapest,венгрия
+Варшава|WAW|Польша|52.23|21.01|warsaw,польша
+Афины|ATH|Греция|37.98|23.73|athens,греция
+Цюрих|ZRH|Швейцария|47.38|8.54|zurich,швейцария
+Женева|GVA|Швейцария|46.20|6.14|geneva
+Стокгольм|STO|Швеция|59.33|18.07|stockholm,швеция
+Осло|OSL|Норвегия|59.91|10.75|oslo,норвегия
+Копенгаген|CPH|Дания|55.68|12.57|copenhagen,дания
+Хельсинки|HEL|Финляндия|60.17|24.94|helsinki,финляндия
+Рига|RIX|Латвия|56.95|24.11|riga,латвия
+Вильнюс|VNO|Литва|54.69|25.28|vilnius,литва
+Таллин|TLL|Эстония|59.44|24.75|tallinn,эстония
+Дублин|DUB|Ирландия|53.35|-6.26|dublin,ирландия
+Белград|BEG|Сербия|44.79|20.45|belgrade,сербия
+Бухарест|BUH|Румыния|44.43|26.10|bucharest,румыния
+Ларнака|LCA|Кипр|34.92|33.62|larnaca,кипр
+Нью-Йорк|NYC|США|40.71|-74.01|new york,нью йорк,сша,америка
+Лос-Анджелес|LAX|США|34.05|-118.24|los angeles
+Майами|MIA|США|25.76|-80.19|miami
+Чикаго|CHI|США|41.88|-87.63|chicago
+Сан-Франциско|SFO|США|37.77|-122.42|san francisco
+Лас-Вегас|LAS|США|36.17|-115.14|las vegas
+Вашингтон|WAS|США|38.91|-77.04|washington
+Торонто|YTO|Канада|43.65|-79.38|toronto,канада
+Ванкувер|YVR|Канада|49.28|-123.12|vancouver
+Мехико|MEX|Мексика|19.43|-99.13|mexico city,мексика
+Канкун|CUN|Мексика|21.16|-86.85|cancun
+Гавана|HAV|Куба|23.11|-82.37|havana,куба
+Рио-де-Жанейро|RIO|Бразилия|-22.91|-43.17|rio de janeiro,рио,бразилия
+Сан-Паулу|SAO|Бразилия|-23.55|-46.63|sao paulo
+Буэнос-Айрес|BUE|Аргентина|-34.60|-58.38|buenos aires,аргентина
+Лима|LIM|Перу|-12.05|-77.04|lima,перу
+Кейптаун|CPT|ЮАР|-33.92|18.42|cape town,юар
+Йоханнесбург|JNB|ЮАР|-26.20|28.05|johannesburg
+Найроби|NBO|Кения|-1.29|36.82|nairobi,кения
+Занзибар|ZNZ|Танзания|-6.17|39.20|zanzibar,танзания
+Марракеш|RAK|Марокко|31.63|-7.99|marrakech,марокко
+Касабланка|CAS|Марокко|33.57|-7.59|casablanca
+Сейшелы|SEZ|Сейшелы|-4.68|55.49|seychelles,маэ
+Маврикий|MRU|Маврикий|-20.35|57.55|mauritius
+Сидней|SYD|Австралия|-33.87|151.21|sydney,австралия
+Мельбурн|MEL|Австралия|-37.81|144.96|melbourne
+Окленд|AKL|Новая Зеландия|-36.85|174.76|auckland,новая зеландия
+Детройт|DTT|США|42.33|-83.05|detroit
+Бостон|BOS|США|42.36|-71.06|boston
+Сиэтл|SEA|США|47.61|-122.33|seattle
+Даллас|DFW|США|32.78|-96.80|dallas
+Хьюстон|HOU|США|29.76|-95.37|houston
+Атланта|ATL|США|33.75|-84.39|atlanta
+Денвер|DEN|США|39.74|-104.99|denver
+Орландо|ORL|США|28.54|-81.38|orlando
+Финикс|PHX|США|33.45|-112.07|phoenix
+Миннеаполис|MSP|США|44.98|-93.27|minneapolis
+Гонолулу|HNL|США|21.31|-157.86|honolulu,гавайи
+Анкоридж|ANC|США|61.22|-149.90|anchorage,аляска
+Монреаль|YMQ|Канада|45.50|-73.57|montreal
+Калгари|YYC|Канада|51.05|-114.07|calgary
+Галифакс|YHZ|Канада|44.65|-63.57|halifax
+Нуук|GOH|Гренландия|64.18|-51.72|nuuk,гренландия
+Рейкьявик|REK|Исландия|64.15|-21.94|reykjavik,исландия
+Тромсё|TOS|Норвегия|69.65|18.96|tromso
+Эдинбург|EDI|Великобритания|55.95|-3.19|edinburgh,шотландия
+Манчестер|MAN|Великобритания|53.48|-2.24|manchester
+Богота|BOG|Колумбия|4.71|-74.07|bogota,колумбия
+Сантьяго|SCL|Чили|-33.45|-70.67|santiago,чили
+Каракас|CCS|Венесуэла|10.48|-66.90|caracas,венесуэла
+Кито|UIO|Эквадор|-0.18|-78.47|quito,эквадор
+Панама|PTY|Панама|8.98|-79.52|panama
+Сан-Хосе|SJO|Коста-Рика|9.93|-84.08|san jose,коста-рика
+Пунта-Кана|PUJ|Доминикана|18.58|-68.40|punta cana,доминикана
+Монтевидео|MVD|Уругвай|-34.90|-56.16|montevideo,уругвай
+Ла-Пас|LPB|Боливия|-16.50|-68.15|la paz,боливия
+Асунсьон|ASU|Парагвай|-25.26|-57.58|asuncion,парагвай
+Манаус|MAO|Бразилия|-3.12|-60.02|manaus,амазонка
+Салвадор|SSA|Бразилия|-12.97|-38.50|salvador
+Ушуая|USH|Аргентина|-54.80|-68.30|ushuaia
+Лагос|LOS|Нигерия|6.52|3.38|lagos,нигерия
+Аккра|ACC|Гана|5.60|-0.19|accra,гана
+Дакар|DKR|Сенегал|14.72|-17.47|dakar,сенегал
+Абиджан|ABJ|Кот-д’Ивуар|5.36|-4.01|abidjan
+Бамако|BKO|Мали|12.64|-8.00|bamako,мали
+Алжир|ALG|Алжир|36.75|3.06|algiers
+Тунис|TUN|Тунис|36.81|10.18|tunis
+Триполи|TIP|Ливия|32.89|13.19|tripoli,ливия
+Хартум|KRT|Судан|15.50|32.56|khartoum,судан
+Аддис-Абеба|ADD|Эфиопия|9.03|38.74|addis ababa,эфиопия
+Кигали|KGL|Руанда|-1.95|30.06|kigali,руанда
+Киншаса|FIH|ДР Конго|-4.44|15.27|kinshasa,конго
+Луанда|LAD|Ангола|-8.84|13.23|luanda,ангола
+Дар-эс-Салам|DAR|Танзания|-6.79|39.21|dar es salaam
+Виндхук|WDH|Намибия|-22.56|17.08|windhoek,намибия
+Дурбан|DUR|ЮАР|-29.86|31.02|durban
+Антананариву|TNR|Мадагаскар|-18.88|47.51|antananarivo,мадагаскар
+Мурманск|MMK|Россия|68.97|33.07|murmansk
+Самара|KUF|Россия|53.20|50.15|samara
+Уфа|UFA|Россия|54.74|55.97|ufa
+Челябинск|CEK|Россия|55.16|61.40|chelyabinsk
+Тюмень|TJM|Россия|57.15|65.53|tyumen
+Красноярск|KJA|Россия|56.01|92.87|krasnoyarsk,сибирь
+Норильск|NSK|Россия|69.35|88.20|norilsk
+Иркутск|IKT|Россия|52.29|104.28|irkutsk,байкал
+Якутск|YKS|Россия|62.03|129.73|yakutsk,якутия
+Хабаровск|KHV|Россия|48.48|135.08|khabarovsk
+Магадан|GDX|Россия|59.56|150.80|magadan
+Петропавловск-Камчатский|PKC|Россия|53.02|158.65|kamchatka,камчатка
+Карачи|KHI|Пакистан|24.86|67.01|karachi,пакистан
+Исламабад|ISB|Пакистан|33.68|73.05|islamabad
+Кабул|KBL|Афганистан|34.56|69.21|kabul,афганистан
+Дакка|DAC|Бангладеш|23.81|90.41|dhaka,бангладеш
+Бангалор|BLR|Индия|12.97|77.59|bangalore,бенгалуру
+Ченнаи|MAA|Индия|13.08|80.27|chennai,мадрас
+Лхаса|LXA|Китай|29.65|91.17|lhasa,тибет
+Чэнду|CTU|Китай|30.57|104.07|chengdu
+Сиань|SIA|Китай|34.34|108.94|xian
+Янгон|RGN|Мьянма|16.87|96.20|yangon,мьянма
+Пномпень|PNH|Камбоджа|11.56|104.93|phnom penh,камбоджа
+Вьентьян|VTE|Лаос|17.97|102.63|vientiane,лаос
+Саппоро|SPK|Япония|43.06|141.35|sapporo,хоккайдо
+Окинава|OKA|Япония|26.21|127.68|okinawa
+Перт|PER|Австралия|-31.95|115.86|perth
+Брисбен|BNE|Австралия|-27.47|153.03|brisbane
+Аделаида|ADL|Австралия|-34.93|138.60|adelaide
+Дарвин|DRW|Австралия|-12.46|130.84|darwin
+Кэрнс|CNS|Австралия|-16.92|145.77|cairns
+Алис-Спрингс|ASP|Австралия|-23.70|133.88|alice springs
+Веллингтон|WLG|Новая Зеландия|-41.29|174.78|wellington
+Крайстчерч|CHC|Новая Зеландия|-43.53|172.64|christchurch
+Порт-Морсби|POM|Папуа — Новая Гвинея|-9.44|147.18|port moresby
+Нумеа|NOU|Новая Каледония|-22.27|166.46|noumea
+Нади|NAN|Фиджи|-17.76|177.44|nadi,фиджи
+Папеэте|PPT|Французская Полинезия|-17.54|-149.57|papeete,таити`;
+
+        const norm = (s) => s.trim().toLowerCase().replace(/ё/g, 'е');
+
+        const CITIES = CITY_DATA.trim().split('\n').map(line => {
+            const [name, code, country, lat, lon, aliases] = line.split('|');
+            return {
+                name, code, country,
+                lat: Number(lat),
+                lon: Number(lon),
+                aliases: (aliases || '').split(',').map(norm).filter(Boolean)
+            };
+        });
+
+        const POPULAR = [
+            { code: 'IST', emoji: '🕌', tag: 'Босфор и кебабы', color: '#fecaca' },
+            { code: 'DXB', emoji: '🏙️', tag: 'Самое высокое здание мира', color: '#fde68a' },
+            { code: 'TBS', emoji: '🍷', tag: 'Хинкали уже ждут', color: '#bbf7d0' },
+            { code: 'SEL', emoji: '🎤', tag: 'K-pop и рамён', color: '#ddd6fe' },
+            { code: 'BKK', emoji: '🌴', tag: 'Вечное лето', color: '#fed7aa' },
+            { code: 'TYO', emoji: '🗼', tag: 'Аниме и суши', color: '#fbcfe8' },
+            { code: 'PAR', emoji: '🥐', tag: 'Круассаны и Эйфелева башня', color: '#bae6fd' },
+            { code: 'NYC', emoji: '🗽', tag: 'Город, который не спит', color: '#99f6e4' }
+        ];
+
+        const RECENT_KEY = 'aviasales_recent';
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        const $ = (id) => document.getElementById(id);
+        const form = $('searchForm');
+        const fromInput = $('from-input');
+        const cityInput = $('city-input');
+        const departInput = $('depart-date');
+        const returnInput = $('return-date');
+        const paxValue = $('paxValue');
+
+        const byCode = (code) => CITIES.find(c => c.code === code);
+
+        let origin = byCode('ALA');   // откуда (по умолчанию — Алматы, потом город по IP)
+        let selected = null;          // куда
+        let originTouched = false;    // пользователь сам выбрал «откуда» — IP больше не трогает
+        let userPos = null;           // { lat, lon, city } — примерное местоположение по IP
+        let passengers = 1;
+
+        // ===== TOAST =====
+        let toastTimeout;
+        function showToast(message, type = '') {
+            const toast = $('toast');
+            clearTimeout(toastTimeout);
+            toast.textContent = message;
+            toast.className = 'toast show' + (type ? ' ' + type : '');
+            toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function shake(el) {
+            el.classList.remove('shake');
+            void el.offsetWidth;   // перезапуск анимации
+            el.classList.add('shake');
+            el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+        }
+
+        // ===== ПОИСК ГОРОДА (с опечатками) =====
+        function getLevenshteinDistance(a, b) {
+            const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+            for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+            for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+            for (let i = 1; i <= a.length; i++) {
+                for (let j = 1; j <= b.length; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j - 1] + cost
+                    );
+                }
+            }
+            return matrix[a.length][b.length];
+        }
+
+        // Ближайший город с учётом опечаток. Чем короче слово, тем меньше ошибок разрешаем
+        function fuzzyCity(q) {
+            const maxDistance = q.length <= 4 ? 1 : q.length <= 7 ? 2 : 3;
+            let best = null;
+            let bestDistance = Infinity;
+            for (const city of CITIES) {
+                for (const key of [norm(city.name), ...city.aliases]) {
+                    const d = getLevenshteinDistance(q, key);
+                    if (d < bestDistance) {
+                        bestDistance = d;
+                        best = city;
+                    }
+                }
+            }
+            return bestDistance <= maxDistance ? best : null;
+        }
+
+        // Точное совпадение: код, название или другое название
+        function exactCity(q) {
+            return CITIES.find(c => c.code.toLowerCase() === q)
+                || CITIES.find(c => norm(c.name) === q)
+                || CITIES.find(c => c.aliases.includes(q))
+                || null;
+        }
+
+        function recognize(text) {
+            const q = norm(text);
+            if (!q) return null;
+            return exactCity(q) || (q.length >= 3 ? fuzzyCity(q) : null);
+        }
+
+        // Список подсказок: сначала по началу слова, потом по вхождению, потом с опечаткой
+        function searchCities(query, defaults) {
+            const q = norm(query);
+            if (!q) return defaults().map(city => ({ city }));
+
+            const results = [];
+            for (const city of CITIES) {
+                const name = norm(city.name);
+                let score = null;
+                if (city.code.toLowerCase() === q) score = 0;
+                else if (name.startsWith(q)) score = 1;
+                else if (city.aliases.some(a => a.startsWith(q))) score = 2;
+                else if (name.includes(q) || norm(city.country).startsWith(q)) score = 3;
+                if (score !== null) results.push({ city, score });
+            }
+            if (results.length === 0) {
+                const guess = fuzzyCity(q);
+                if (guess) results.push({ city: guess, score: 9, fuzzy: true });
+            }
+            return results.sort((a, b) => a.score - b.score).slice(0, 8);
+        }
+
+        // ===== РАССТОЯНИЯ =====
+        function distanceKm(a, b) {
+            const R = 6371;
+            const toRad = (d) => d * Math.PI / 180;
+            const dLat = toRad(b.lat - a.lat);
+            const dLon = toRad(b.lon - a.lon);
+            const h = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(h));
+        }
+
+        function nearestCity(pos) {
+            let best = null;
+            let bestKm = Infinity;
+            for (const city of CITIES) {
+                const km = distanceKm(pos, city);
+                if (km < bestKm) {
+                    bestKm = km;
+                    best = city;
+                }
+            }
+            return best;
+        }
+
+        // ===== ТАБЛО С ПЕРЕЛИСТЫВАНИЕМ =====
+        const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+        function setFlap(el, value) {
+            const target = (value || '???').slice(0, 3).padEnd(3, '?');
+            if (el.dataset.value === target) return;
+            el.dataset.value = target;
+
+            [...el.children].forEach((cell, i) => {
+                clearInterval(cell._timer);
+                if (reduceMotion) {
+                    cell.textContent = target[i];
+                    return;
+                }
+                let ticks = 4 + i * 3;   // буквы останавливаются по очереди
+                cell._timer = setInterval(() => {
+                    cell.classList.remove('flip');
+                    void cell.offsetWidth;
+                    cell.classList.add('flip');
+                    if (--ticks <= 0) {
+                        clearInterval(cell._timer);
+                        cell.textContent = target[i];
+                    } else {
+                        cell.textContent = ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+                    }
+                }, 65);
+            });
+        }
+
+        // ===== ВЫБОР ГОРОДОВ =====
+        function setOrigin(city, { fillInput = false } = {}) {
+            origin = city;
+            if (fillInput && city) fromInput.value = city.name;
+            setFlap($('fromFlap'), city ? city.code : '???');
+            $('fromCityName').textContent = city ? `${city.name}, ${city.country}` : 'выберите город';
+            onRouteChange();
+        }
+
+        function setDestination(city, { fillInput = false } = {}) {
+            selected = city;
+            if (fillInput && city) cityInput.value = city.name;
+            setFlap($('toFlap'), city ? city.code : '???');
+            $('toCityName').textContent = city ? `${city.name}, ${city.country}` : 'выберите город';
+            onRouteChange();
+        }
+
+        function onRouteChange() {
+            updateStub();
+            updateMapInfo();
+            mapFlyTo();
+        }
+
+        $('swapBtn').addEventListener('click', () => {
+            if (!origin || !selected) {
+                showToast('Сначала выбери оба города', 'warning');
+                return;
+            }
+            originTouched = true;
+            const a = origin;
+            setOrigin(selected, { fillInput: true });
+            setDestination(a, { fillInput: true });
+        });
+
+        // ===== ВЫПАДАЮЩИЙ СПИСОК (один код для «Откуда» и «Куда») =====
+        function highlight(text, query) {
+            const q = norm(query);
+            const idx = norm(text).indexOf(q);
+            if (!q || idx === -1) return [text];
+            const mark = document.createElement('mark');
+            mark.textContent = text.slice(idx, idx + q.length);
+            return [text.slice(0, idx), mark, text.slice(idx + q.length)];
+        }
+
+        function makeCombo(input, list, { defaults, onPick, next }) {
+            let items = [];
+            let activeIndex = -1;
+
+            function render() {
+                items = searchCities(input.value, defaults);
+                activeIndex = items.length ? 0 : -1;
+                list.innerHTML = '';
+
+                if (!items.length) {
+                    const li = document.createElement('li');
+                    li.textContent = 'Такого города пока нет 😔';
+                    li.style.cursor = 'default';
+                    list.appendChild(li);
+                }
+
+                items.forEach(({ city, fuzzy }, i) => {
+                    const li = document.createElement('li');
+                    li.setAttribute('role', 'option');
+
+                    const left = document.createElement('div');
+                    const name = document.createElement('span');
+                    name.className = 's-name';
+                    name.append(...highlight(city.name, input.value));
+                    const country = document.createElement('span');
+                    country.className = 's-country';
+                    country.textContent = city.country;
+                    left.append(name, country);
+                    if (fuzzy) {
+                        const hint = document.createElement('span');
+                        hint.className = 's-hint';
+                        hint.textContent = 'Возможно, вы имели в виду это?';
+                        left.appendChild(hint);
+                    }
+
+                    const code = document.createElement('span');
+                    code.className = 's-code';
+                    code.textContent = city.code;
+
+                    li.append(left, code);
+                    // mousedown, а не click — чтобы поле не успело потерять фокус и закрыть список
+                    li.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        choose(i);
+                    });
+                    list.appendChild(li);
+                });
+
+                updateActive();
+                list.hidden = false;
+                input.setAttribute('aria-expanded', 'true');
+            }
+
+            function updateActive() {
+                [...list.children].forEach((li, i) => li.classList.toggle('active', i === activeIndex));
+                list.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
+            }
+
+            function close() {
+                list.hidden = true;
+                input.setAttribute('aria-expanded', 'false');
+            }
+
+            function choose(i) {
+                const item = items[i];
+                if (!item) return;
+                onPick(item.city, true);
+                close();
+                next?.focus();
+            }
+
+            input.addEventListener('input', () => {
+                render();
+                // Табло и карта обновляются, как только город узнаётся (даже с опечаткой)
+                onPick(recognize(input.value), false);
+            });
+
+            input.addEventListener('focus', () => {
+                input.select();
+                render();
+            });
+            input.addEventListener('blur', () => setTimeout(close, 100));
+
+            input.addEventListener('keydown', (e) => {
+                if (list.hidden) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                    updateActive();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                    updateActive();
+                } else if (e.key === 'Enter' && activeIndex >= 0) {
+                    e.preventDefault();
+                    choose(activeIndex);
+                } else if (e.key === 'Escape') {
+                    close();
+                }
+            });
+        }
+
+        // «Откуда»: сначала город по IP, потом крупные города Казахстана и СНГ
+        makeCombo(fromInput, $('fromList'), {
+            defaults: () => {
+                const near = userPos ? nearestCity(userPos) : null;
+                const base = ['ALA', 'NQZ', 'CIT', 'TAS', 'FRU', 'MOW'].map(byCode);
+                return [...new Set([near, ...base].filter(Boolean))];
+            },
+            onPick: (city, fromList) => {
+                originTouched = true;
+                setOrigin(city, { fillInput: fromList });
+            },
+            next: cityInput
+        });
+
+        // «Куда»: популярные направления
+        makeCombo(cityInput, $('cityList'), {
+            defaults: () => POPULAR.map(p => byCode(p.code)),
+            onPick: (city, fromList) => setDestination(city, { fillInput: fromList }),
+            next: departInput
+        });
+
+        // ===== ДАТЫ =====
+        function isoDate(date) {
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 10);
+        }
+
+        function addDays(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            return isoDate(d);
+        }
+
+        function prettyDate(value) {
+            if (!value) return '';
+            const [y, m, d] = value.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+        }
+
+        departInput.min = addDays(0);
+        returnInput.min = addDays(0);
+
+        departInput.addEventListener('change', () => {
+            returnInput.min = departInput.value || addDays(0);
+            if (returnInput.value && returnInput.value < departInput.value) returnInput.value = '';
+            updateStub();
+        });
+        returnInput.addEventListener('change', updateStub);
+
+        document.querySelectorAll('.chip[data-days]').forEach(chip => {
+            chip.addEventListener('click', () => {
+                departInput.value = addDays(Number(chip.dataset.days));
+                departInput.dispatchEvent(new Event('change'));
+            });
+        });
+
+        $('noReturnBtn').addEventListener('click', () => {
+            returnInput.value = '';
+            updateStub();
+        });
+
+        // ===== ПАССАЖИРЫ =====
+        function setPassengers(n, animate = true) {
+            passengers = Math.min(9, Math.max(1, n));
+            paxValue.textContent = passengers;
+            if (animate) {
+                paxValue.classList.remove('bump');
+                void paxValue.offsetWidth;
+                paxValue.classList.add('bump');
+            }
+            $('paxMinus').disabled = passengers <= 1;
+            $('paxPlus').disabled = passengers >= 9;
+            updateStub();
+        }
+
+        $('paxMinus').addEventListener('click', () => setPassengers(passengers - 1));
+        $('paxPlus').addEventListener('click', () => setPassengers(passengers + 1));
+
+        // ===== КОРЕШОК БИЛЕТА =====
+        function updateStub() {
+            $('stubRoute').textContent = `${origin ? origin.code : '???'} → ${selected ? selected.code : '???'}`;
+            const there = prettyDate(departInput.value);
+            const back = prettyDate(returnInput.value);
+            $('stubDate').textContent = there ? (back ? `${there} — ${back}` : `${there}, в одну сторону`) : '—';
+            $('stubPax').textContent = passengers;
+        }
+
+        // ===== КАРТА МИРА =====
+        const W = 960, H = 480;
+        const svg = d3.select('#map');
+        const projection = d3.geoNaturalEarth1();
+        const geoPath = d3.geoPath(projection);
+        const graticule = d3.geoGraticule10();
+
+        let countries = null;   // границы стран (грузятся с CDN)
+        let view = null;        // текущий вид карты { rot, s, tx, ty }
+        let flight = null;      // d3.geoInterpolate текущего маршрута
+
+        // Масштаб и сдвиг от пользователя (кнопки +/−, мышь, пальцы)
+        let zt = d3.zoomIdentity;
+
+        // Координаты на экране карты с учётом масштаба
+        function toScreen(lon, lat) {
+            return zt.apply(projection([lon, lat]));
+        }
+
+        // Слои карты (снизу вверх).
+        // gZoom — то, что увеличивается целиком: океан, сетка, страны, линия маршрута.
+        const gZoom = svg.append('g');
+        const gOcean = gZoom.append('path').attr('class', 'ocean');
+        const gGrid = gZoom.append('path').attr('class', 'graticule');
+        const gLand = gZoom.append('path').attr('class', 'land');
+        const gGlow = gZoom.append('path').attr('class', 'route-glow');
+        const gRoute = gZoom.append('path').attr('class', 'route');
+
+        // Всё, что ниже, при увеличении не растёт — только переезжает на новое место
+        // Точки всех городов — клик выбирает пункт назначения
+        const gCities = svg.append('g');
+        const cityDots = gCities.selectAll('circle')
+            .data(CITIES)
+            .join('circle')
+            .attr('class', 'city-dot')
+            .attr('r', 3.5)
+            .on('mouseenter', (e, city) => showHoverLabel(city))
+            .on('mouseleave', () => {
+                hoveredCity = null;
+                hoverLabel.style('display', 'none');
+            });
+        let hoveredCity = null;
+
+        function showHoverLabel(city) {
+            hoveredCity = city;
+            const [x, y] = toScreen(city.lon, city.lat);
+            hoverLabel.style('display', null)
+                .attr('x', x + 9).attr('y', y - 8)
+                .text(`${city.name} (${city.code})`);
+        }
+
+        // Клик по карте: ближайший к точке клика город становится пунктом назначения
+        svg.on('click', (e) => {
+            const [x, y] = d3.pointer(e);
+            const lonLat = projection.invert(zt.invert([x, y]));
+            if (!lonLat || !Number.isFinite(lonLat[0])) return;
+            const city = nearestCity({ lon: lonLat[0], lat: lonLat[1] });
+            // Насколько далеко от клика город — в пикселях карты
+            const [cx, cy] = toScreen(city.lon, city.lat);
+            if (Math.hypot(cx - x, cy - y) > 60) {
+                showToast('Тут поблизости нет городов из списка — кликни ближе к точке', 'warning');
+                return;
+            }
+            if (city === origin) {
+                showToast('Отсюда мы и вылетаем 🙂 Выбери другой город', 'warning');
+                return;
+            }
+            setDestination(city, { fillInput: true });
+            showToast(`Летим в ${city.name}!`, 'success');
+        });
+
+        const gMe = svg.append('g').attr('class', 'me').style('display', 'none');
+        gMe.append('circle').attr('class', 'pulse').attr('r', 6);
+        gMe.append('circle').attr('class', 'dot').attr('r', 6);
+        gMe.append('text').attr('x', 10).attr('y', -10).text('Вы здесь');
+        const gFrom = makePin('from');
+        const gTo = makePin('to');
+        const gPlane = svg.append('g').attr('class', 'plane').style('display', 'none');
+        // Самолётик, нос смотрит вправо
+        gPlane.append('path').attr('d', 'M -16 -3 L 8 -3 L 16 0 L 8 3 L -16 3 Z')
+            .attr('fill', '#fff').attr('stroke', '#000').attr('stroke-width', 2.5).attr('stroke-linejoin', 'round');
+        gPlane.append('path').attr('d', 'M -2 -3 L -8 -15 L -2 -15 L 6 -3 Z M -2 3 L -8 15 L -2 15 L 6 3 Z M -16 -3 L -20 -10 L -15 -10 L -11 -3 Z')
+            .attr('fill', '#fde047').attr('stroke', '#000').attr('stroke-width', 2.5).attr('stroke-linejoin', 'round');
+
+        // Подпись при наведении — поверх всего
+        const hoverLabel = svg.append('text').attr('class', 'hover-label').style('display', 'none');
+
+        function makePin(cls) {
+            const g = svg.append('g').attr('class', 'pin ' + cls).style('display', 'none');
+            g.append('circle').attr('r', 8);
+            g.append('text').attr('x', 12).attr('y', 5);
+            return g;
+        }
+
+        // ===== УВЕЛИЧЕНИЕ И ПЕРЕМЕЩЕНИЕ =====
+        // Мышь: перетаскивание — двигать, Ctrl + колесо (или «щипок» на тачпаде) — масштаб.
+        // Телефон: один палец — двигать, два пальца — масштаб.
+        const zoom = d3.zoom()
+            .scaleExtent([1, 12])
+            .extent([[0, 0], [W, H]])
+            .translateExtent([[0, 0], [W, H]])   // нельзя утащить карту за край
+            .clickDistance(6)                    // небольшое движение — всё ещё клик по городу
+            .filter((e) => {
+                // Колесо без Ctrl прокручивает страницу, а не карту
+                if (e.type === 'wheel') return e.ctrlKey;
+                return !e.button;
+            })
+            .on('start', () => svg.classed('dragging', true))
+            .on('end', () => svg.classed('dragging', false))
+            .on('zoom', (e) => {
+                zt = e.transform;
+                gZoom.attr('transform', zt);
+                drawOverlay();
+            });
+
+        svg.call(zoom).on('dblclick.zoom', null);
+
+        function zoomBy(factor) {
+            svg.transition().duration(reduceMotion ? 0 : 300).call(zoom.scaleBy, factor);
+        }
+
+        function resetZoom(duration = 400) {
+            svg.transition().duration(reduceMotion ? 0 : duration).call(zoom.transform, d3.zoomIdentity);
+        }
+
+        $('zoomIn').addEventListener('click', () => zoomBy(1.6));
+        $('zoomOut').addEventListener('click', () => zoomBy(1 / 1.6));
+        $('zoomReset').addEventListener('click', () => resetZoom());
+
+        // Вид «весь мир», повёрнутый к долготе lon
+        function worldView(lon) {
+            projection.rotate([-lon, 0]).fitExtent([[8, 8], [W - 8, H - 8]], { type: 'Sphere' });
+            return { rot: -lon, s: projection.scale(), tx: projection.translate()[0], ty: projection.translate()[1] };
+        }
+
+        // Вид, в который помещается маршрут (но не ближе, чем в 7 раз, и не дальше всего мира)
+        function routeView(a, b) {
+            const interp = d3.geoInterpolate([a.lon, a.lat], [b.lon, b.lat]);
+            const mid = interp(0.5);
+            const world = worldView(mid[0]);
+            const points = d3.range(0, 1.001, 0.05).map(interp);
+
+            projection.rotate([-mid[0], 0]).fitExtent([[70, 60], [W - 70, H - 60]], { type: 'MultiPoint', coordinates: points });
+            let s = Math.min(Math.max(projection.scale(), world.s), world.s * 7);
+
+            // Центрируем середину маршрута
+            projection.scale(s).translate([W / 2, H / 2]);
+            const p = projection(mid);
+            return { rot: -mid[0], s, tx: W - p[0], ty: H - p[1] };
+        }
+
+        function applyView(v) {
+            projection.rotate([v.rot, 0]).scale(v.s).translate([v.tx, v.ty]);
+        }
+
+        function drawMap() {
+            if (!view) return;
+            applyView(view);
+            gOcean.attr('d', geoPath({ type: 'Sphere' }));
+            gGrid.attr('d', geoPath(graticule));
+            if (countries) gLand.attr('d', geoPath(countries));
+
+            const hasRoute = origin && selected && origin !== selected;
+            const line = hasRoute
+                ? geoPath({ type: 'LineString', coordinates: [[origin.lon, origin.lat], [selected.lon, selected.lat]] })
+                : null;
+            gRoute.attr('d', line);
+            gGlow.attr('d', line);
+
+            drawOverlay();
+        }
+
+        // Точки, метки и подписи — пересчитываются и при повороте карты, и при увеличении
+        function drawOverlay() {
+            if (!view) return;
+            cityDots
+                .attr('cx', c => toScreen(c.lon, c.lat)[0])
+                .attr('cy', c => toScreen(c.lon, c.lat)[1]);
+            if (hoveredCity) showHoverLabel(hoveredCity);
+
+            placePoint(gMe, userPos);
+            placePoint(gFrom, origin, origin?.code);
+            placePoint(gTo, selected, selected?.code);
+        }
+
+        function placePoint(g, pos, label) {
+            if (!pos) {
+                g.style('display', 'none');
+                return;
+            }
+            const [x, y] = toScreen(pos.lon, pos.lat);
+            g.style('display', null).attr('transform', `translate(${x},${y})`);
+            if (label) g.select('text').text(label);
+        }
+
+        // Плавный «перелёт» камеры к новому виду
+        let viewTimer = null;
+        function mapFlyTo() {
+            if (!view) return;
+            const hasRoute = origin && selected && origin !== selected;
+            const target = hasRoute
+                ? routeView(origin, selected)
+                : worldView(origin ? origin.lon : 70);
+
+            flight = hasRoute
+                ? d3.geoInterpolate([origin.lon, origin.lat], [selected.lon, selected.lat])
+                : null;
+
+            // Новый маршрут — сбрасываем ручное увеличение, камера сама покажет маршрут
+            resetZoom(600);
+
+            // Поворот — по кратчайшему пути (через ±180°)
+            let dRot = target.rot - view.rot;
+            dRot = ((dRot + 540) % 360) - 180;
+            const start = { ...view };
+            const end = { ...target, rot: start.rot + dRot };
+            const interp = d3.interpolate(start, end);
+
+            viewTimer?.stop();
+            if (reduceMotion) {
+                view = end;
+                drawMap();
+                return;
+            }
+            viewTimer = d3.timer((elapsed) => {
+                const t = Math.min(1, elapsed / 1100);
+                view = interp(d3.easeCubicInOut(t));
+                drawMap();
+                if (t === 1) viewTimer.stop();
+            });
+        }
+
+        // Самолётик летит по маршруту, долетает и начинает заново
+        function planeLoop(time) {
+            if (flight && view) {
+                const km = distanceKm(origin, selected);
+                const duration = Math.min(7000, 2500 + km * 0.4);
+                const t = (time % (duration + 700)) / duration;
+                if (t <= 1) {
+                    const eased = d3.easeSinInOut(t);
+                    const p = toScreen(...flight(eased));
+                    const q = toScreen(...flight(Math.min(1, eased + 0.01)));
+                    const angle = Math.atan2(q[1] - p[1], q[0] - p[0]) * 180 / Math.PI;
+                    gPlane.style('display', null)
+                        .attr('transform', `translate(${p[0]},${p[1]}) rotate(${angle})`);
+                } else {
+                    gPlane.style('display', 'none');   // короткая пауза в конце
+                }
+            } else {
+                gPlane.style('display', 'none');
+            }
+            requestAnimationFrame(planeLoop);
+        }
+
+        function formatDuration(hours) {
+            const h = Math.floor(hours);
+            const m = Math.round((hours - h) * 60 / 5) * 5;
+            return h ? `${h} ч ${m ? m + ' мин' : ''}`.trim() : `${m} мин`;
+        }
+
+        function updateMapInfo() {
+            const el = $('mapRoute');
+            if (origin && selected && origin !== selected) {
+                const km = distanceKm(origin, selected);
+                // Примерно: 800 км/ч в полёте + 30 минут на взлёт и посадку
+                const hours = km / 800 + 0.5;
+                el.textContent = `${origin.code} → ${selected.code} · ${Math.round(km).toLocaleString('ru-RU')} км · ≈ ${formatDuration(hours)} в полёте`;
+            } else {
+                el.textContent = '👆 Нажми на точку на карте или выбери город ниже';
+            }
+        }
+
+        async function initMap() {
+            view = worldView(origin ? origin.lon : 70);
+            drawMap();
+            try {
+                const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                const world = await res.json();
+                countries = topojson.feature(world, world.objects.countries);
+                $('mapLoading').hidden = true;
+                drawMap();
+            } catch {
+                $('mapLoading').textContent = 'Не удалось загрузить карту 😔';
+            }
+            requestAnimationFrame(planeLoop);
+        }
+
+        // ===== МЕСТОПОЛОЖЕНИЕ ПО IP (без запроса разрешения, точность — до города) =====
+        async function fetchJson(url, ms = 4000) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), ms);
+            try {
+                const res = await fetch(url, { signal: ctrl.signal });
+                if (!res.ok) throw new Error(res.status);
+                return await res.json();
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        async function locateByIp() {
+            const services = [
+                async () => {
+                    const d = await fetchJson('https://get.geojs.io/v1/ip/geo.json');
+                    return { lat: Number(d.latitude), lon: Number(d.longitude), city: d.city };
+                },
+                async () => {
+                    const d = await fetchJson('https://ipapi.co/json/');
+                    return { lat: Number(d.latitude), lon: Number(d.longitude), city: d.city };
+                }
+            ];
+            for (const service of services) {
+                try {
+                    const pos = await service();
+                    if (Number.isFinite(pos.lat) && Number.isFinite(pos.lon)) return pos;
+                } catch { /* пробуем следующий сервис */ }
+            }
+            return null;
+        }
+
+        async function initLocation() {
+            userPos = await locateByIp();
+            if (!userPos) {
+                $('mapMe').textContent = '📍 Не удалось определить, где вы';
+                return;
+            }
+            const near = nearestCity(userPos);
+            const km = Math.round(distanceKm(userPos, near));
+            $('mapMe').textContent = `📍 Вы примерно здесь: ${userPos.city || near.name}`;
+
+            // Подставляем ближайший город в «Откуда», если он недалеко и пользователь ещё не выбрал сам
+            if (!originTouched && km < 300 && near !== origin) {
+                setOrigin(near, { fillInput: true });
+                showToast(`Вылет из города ${near.name} — вы ведь там? 🙂`, 'info');
+            } else {
+                drawMap();
+            }
+        }
+
+        // ===== ПОПУЛЯРНЫЕ НАПРАВЛЕНИЯ =====
+        POPULAR.forEach((p, i) => {
+            const city = byCode(p.code);
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'dest reveal';
+            card.style.setProperty('--c', p.color);
+            card.style.setProperty('--d', `${0.35 + i * 0.05}s`);
+
+            const emoji = document.createElement('span');
+            emoji.className = 'd-emoji';
+            emoji.textContent = p.emoji;
+            const code = document.createElement('span');
+            code.className = 'd-code';
+            code.textContent = p.code;
+            const name = document.createElement('span');
+            name.className = 'd-name';
+            name.textContent = city.name;
+            const tag = document.createElement('span');
+            tag.className = 'd-tag';
+            tag.textContent = p.tag;
+
+            card.append(emoji, code, name, tag);
+            card.addEventListener('click', () => {
+                setDestination(city, { fillInput: true });
+                document.querySelector('.map-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+            });
+            $('destGrid').appendChild(card);
+        });
+
+        // ===== НЕДАВНИЕ ПОИСКИ (хранятся только в этом браузере) =====
+        function loadRecent() {
+            try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch { return []; }
+        }
+
+        function saveRecent(entry) {
+            const list = [entry, ...loadRecent().filter(r =>
+                !(r.from === entry.from && r.code === entry.code && r.depart === entry.depart && r.ret === entry.ret))].slice(0, 4);
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch { }
+            renderRecent();
+        }
+
+        function renderRecent() {
+            const list = loadRecent().filter(r => byCode(r.code) && byCode(r.from || 'ALA'));
+            $('recentBox').hidden = list.length === 0;
+            const box = $('recentList');
+            box.innerHTML = '';
+            list.forEach(r => {
+                const from = r.from || 'ALA';
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'chip';
+                chip.textContent = `${from} → ${r.code} · ${prettyDate(r.depart)}${r.ret ? ' ⇄' : ''}`;
+                chip.addEventListener('click', () => {
+                    originTouched = true;
+                    setOrigin(byCode(from), { fillInput: true });
+                    setDestination(byCode(r.code), { fillInput: true });
+                    // Прошедшие даты не подставляем
+                    departInput.value = r.depart >= addDays(0) ? r.depart : '';
+                    returnInput.value = r.ret && r.ret >= departInput.value ? r.ret : '';
+                    departInput.dispatchEvent(new Event('change'));
+                    setPassengers(r.pax || 1);
+                    form.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+                });
+                box.appendChild(chip);
+            });
+        }
+
+        // ===== ПОИСК =====
+        // Формат дат для ссылки Aviasales: ДДММ
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const [year, month, day] = dateString.split('-');
+            return `${day}${month}`;
+        }
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            // Города: выбранные из списка или распознанные из текста
+            const from = origin || recognize(fromInput.value);
+            const city = selected || recognize(cityInput.value);
+            if (!from) {
+                shake(fromInput);
+                showToast('Не нашли город вылета — выбери из списка 😤');
+                fromInput.focus();
+                return;
+            }
+            if (!city) {
+                shake(cityInput);
+                showToast('Город не найден — выбери из списка 😤');
+                cityInput.focus();
+                return;
+            }
+            if (city === from) {
+                shake(cityInput);
+                showToast(`Мы и так в городе ${from.name} 🙂 Выбери другой`, 'warning');
+                return;
+            }
+            if (!departInput.value) {
+                shake(departInput);
+                showToast('Укажи дату вылета');
+                return;
+            }
+            if (departInput.value < addDays(0)) {
+                shake(departInput);
+                showToast('Эта дата уже прошла');
+                return;
+            }
+            if (returnInput.value && returnInput.value < departInput.value) {
+                shake(returnInput);
+                showToast('Обратный рейс раньше вылета? Так не бывает');
+                return;
+            }
+
+            if (from !== origin) setOrigin(from, { fillInput: true });
+            if (city !== selected) setDestination(city, { fillInput: true });
+
+            const url = `https://www.aviasales.kz/search/${from.code}${formatDate(departInput.value)}${city.code}${formatDate(returnInput.value)}${passengers}`;
+            saveRecent({ from: from.code, code: city.code, depart: departInput.value, ret: returnInput.value, pax: passengers });
+
+            // Анимация: штамп на билете + самолёт вылетает из кнопки
+            const stamp = $('stamp');
+            const btn = $('searchBtn');
+            stamp.classList.remove('show');
+            btn.classList.remove('takeoff');
+            void stamp.offsetWidth;
+            stamp.classList.add('show');
+            btn.classList.add('takeoff');
+            setTimeout(() => btn.classList.remove('takeoff'), 1200);
+
+            const link = $('fallbackLink');
+            link.href = url;
+
+            // Небольшая пауза, чтобы увидеть штамп. Если браузер заблокирует новую вкладку — покажем ссылку
+            setTimeout(() => {
+                const win = window.open(url, '_blank');
+                if (win) win.opener = null;   // чужой сайт не получит доступ к нашей вкладке
+                else link.hidden = false;
+            }, reduceMotion ? 0 : 450);
+        });
+
+        // ===== СБРОС ВСЕГО =====
+        // «Откуда» возвращается к городу по IP (или Алматы), остальное очищается
+        function homeCity() {
+            if (userPos) {
+                const near = nearestCity(userPos);
+                if (distanceKm(userPos, near) < 300) return near;
+            }
+            return byCode('ALA');
+        }
+
+        $('resetBtn').addEventListener('click', () => {
+            originTouched = false;
+            cityInput.value = '';
+            departInput.value = '';
+            returnInput.value = '';
+            returnInput.min = addDays(0);
+            $('fallbackLink').hidden = true;
+            setPassengers(1);
+            selected = null;
+            setDestination(null);
+            setOrigin(homeCity(), { fillInput: true });
+            showToast('Всё сброшено 🧹', 'info');
+        });
+
+        // ===== СТАРТ =====
+        setPassengers(1, false);
+        renderRecent();
+        updateStub();
+        initMap();
+        initLocation();
+    </script>
+</body>
+</html>
