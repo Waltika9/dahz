@@ -194,6 +194,10 @@
 
         .error-card { background: #fee2e2 !important; }
 
+        #helpModal .modal-window {
+            max-width: 480px;
+        }
+
         .help-list {
             text-align: left;
             margin: 15px 0;
@@ -201,6 +205,9 @@
             flex-direction: column;
             gap: 10px;
             font-size: 0.95rem;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 4px 6px 6px 4px;  /* ← место для теней */
         }
 
         .help-item {
@@ -208,11 +215,15 @@
             padding: 10px 14px;
             border: 2px solid #000;
             box-shadow: 2px 2px 0px #000;
+            line-height: 1.9;  /* ← чтобы примеры с рамкой не налезали друг на друга */
         }
 
         .help-item code {
+            display: inline-block;
+            line-height: 1.35;
+            white-space: nowrap;
             background: #fff;
-            padding: 2px 6px;
+            padding: 1px 6px;
             border: 1px solid #000;
             font-family: monospace;
         }
@@ -256,6 +267,58 @@
             color: #475569;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+
+        /* ===== Кнопки в модалках: "прыгают" при наведении, как .btn ===== */
+        .modal-btn,
+        .modal-close {
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .modal-btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0px #000;
+        }
+
+        .modal-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0px #000;
+        }
+
+        .modal-btn.danger { background: #fee2e2; }
+        .modal-btn.danger:hover { background: #fca5a5; }
+
+        .modal-close:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0px #000;
+            background: #ff7070;
+        }
+
+        .modal-close:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* ===== Вывод результата ===== */
+        .math-box {
+            overflow-x: auto;
+            overflow-y: hidden;  /* ← убирает лишние стрелки прокрутки справа */
+            padding: 4px 2px;
+        }
+
+        .answer-line {
+            font-size: 1.2rem;
+        }
+
+        .answer-extra {
+            margin-top: 8px;
+            color: #475569;
+            font-size: 0.95rem;
+        }
+
+        .answer-note {
+            margin-top: 8px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -312,6 +375,14 @@
                     Пример: <code>x^2 + y^2 = 65</code>
                 </div>
                 <div class="help-item">
+                    <strong>Квадратный корень:</strong><br>
+                    Используйте знак <code>#</code> (он есть и на телефоне).<br>
+                    <code>#x</code> = √x, <code>#25</code> = √25<br>
+                    Если под корнем выражение — берите его в скобки:<br>
+                    <code>#(x + 3) = x - 3</code><br>
+                    Корень другой степени — через дробную степень: <code>x^(1/3)</code>
+                </div>
+                <div class="help-item">
                     <strong>Дроби и деление:</strong><br>
                     Оборачивайте выражения в скобки.<br>
                     Пример: <code>(x + 1) / (y - 2) = 3</code>
@@ -322,12 +393,18 @@
                 </div>
                 <div class="help-item">
                     <strong>Неравенства:</strong><br>
-                    Используйте <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code><br>
-                    Пример: <code>2*x + 5 &gt; 10</code>
+                    Используйте <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, а «не равно» — <code>!=</code><br>
+                    Пример: <code>2*x + 5 &gt; 10</code><br>
+                    Двойное можно в одну строку: <code>1 &lt; x + 2 &lt; 5</code>
                 </div>
                 <div class="help-item">
                     <strong>Системы:</strong><br>
                     Добавьте несколько строк — они решатся как система.
+                </div>
+                <div class="help-item">
+                    <strong>Ответ:</strong><br>
+                    Неравенства — промежутком, например <code>x ∈ (2; +∞)</code>.<br>
+                    Системы — парой чисел, например <code>(x; y) = (3; 2)</code>.
                 </div>
             </div>
 
@@ -348,14 +425,14 @@
         </div>
     </div>
 
-    <!-- ===== Модалка: Подтверждение удаления ===== -->
+    <!-- ===== Модалка: Подтверждение (удаление строки / очистка) ===== -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-window">
             <button class="modal-close" id="closeConfirmBtn">×</button>
-            <h3 class="modal-title">Удалить строку?</h3>
+            <h3 class="modal-title" id="confirmTitle">Удалить строку?</h3>
             <p id="confirmText" style="margin: 15px 0; line-height: 1.5;">Вы уверены?</p>
             <div class="modal-buttons">
-                <button class="modal-btn" id="confirmYesBtn" style="background:#fee2e2;">Да, удалить</button>
+                <button class="modal-btn danger" id="confirmYesBtn">Да, удалить</button>
                 <button class="modal-btn" id="confirmNoBtn">Отмена</button>
             </div>
         </div>
@@ -364,8 +441,303 @@
     <!-- ===== ВСПЛЫВАЮЩАЯ ПЛАШКА (toast) ===== -->
     <div id="toast" class="toast">Уведомление</div>
 
+    <!-- ===== Python-решатель =====
+         Браузер не выполняет script с неизвестным type, поэтому здесь просто хранится текст.
+         JS читает его и отдаёт в Pyodide. Так не нужно экранировать \ как в JS-строке. -->
+    <script type="text/x-python" id="pySolver">
+import json
+import re
+import sympy as sp
+from sympy.parsing.sympy_parser import (
+    parse_expr, standard_transformations,
+    implicit_multiplication_application, convert_xor
+)
+
+TRANSFORMS = standard_transformations + (implicit_multiplication_application, convert_xor)
+
+# Знаки сравнения. Длинные идут первыми, чтобы "<=" не разрезался на "<" и "="
+REL_SPLIT = re.compile(r'(<=|>=|!=|==|=|<|>)')
+REL_CLASS = {'<=': sp.Le, '>=': sp.Ge, '<': sp.Lt, '>': sp.Gt,
+             '=': sp.Eq, '==': sp.Eq, '!=': sp.Ne}
+REL_LATEX = {'<=': r'\le', '>=': r'\ge', '<': '<', '>': '>',
+             '=': '=', '==': '=', '!=': r'\ne'}
+
+# «Красивые» символы → то, что понимает SymPy
+REPLACEMENTS = [('≥', '>='), ('≤', '<='), ('≠', '!='), ('−', '-'), ('–', '-'),
+                ('×', '*'), ('·', '*'), ('÷', '/'), ('√', '#')]
+
+# То, что может стоять под знаком # без скобок: число, переменная, функция
+ROOT_ATOM = re.compile(r'\d+\.?\d*|\.\d+|[A-Za-z_]\w*')
+
+
+class InputError(Exception):
+    """Ошибка ввода, которую можно показать пользователю как есть."""
+
+
+# ---------- Разбор ввода ----------
+
+def normalize(s):
+    for old, new in REPLACEMENTS:
+        s = s.replace(old, new)
+    return s.strip()
+
+
+def check_missing_ops(s):
+    # "2x 6" или "3(x 4)": между числами пробел, а знака нет.
+    # SymPy молча посчитал бы это умножением (2x 6 = 12x) и выдал неверный ответ
+    m = re.search(r'[\w.)]+\s+[\d.]+', s)
+    if m:
+        raise InputError(f'в «{m.group(0)}» между числами нет знака. Возможно, пропущен «+» или «-»?')
+
+
+def find_closing(s, start):
+    depth = 0
+    for k in range(start, len(s)):
+        if s[k] == '(':
+            depth += 1
+        elif s[k] == ')':
+            depth -= 1
+            if depth == 0:
+                return k
+    raise InputError('не закрыта скобка')
+
+
+def read_root_operand(s, j):
+    """Читает то, что стоит под знаком # (начиная с позиции j)."""
+    while j < len(s) and s[j] == ' ':
+        j += 1
+    if j >= len(s):
+        raise InputError('после знака корня # ничего нет')
+    if s[j] == '#':                          # корень из корня: ##x
+        inner, j = read_root_operand(s, j + 1)
+        return f'sqrt({inner})', j
+    if s[j] == '(':                          # #(x + 1)
+        close = find_closing(s, j)
+        return replace_roots(s[j + 1:close]), close + 1
+    m = ROOT_ATOM.match(s, j)                # #25, #x, #sin(x)
+    if not m:
+        raise InputError(f'после # должно идти число, буква или скобка, а стоит «{s[j]}»')
+    text, j = m.group(0), m.end()
+    if text[0].isalpha() and j < len(s) and s[j] == '(':
+        close = find_closing(s, j)
+        text += '(' + replace_roots(s[j + 1:close]) + ')'
+        j = close + 1
+    return text, j
+
+
+def replace_roots(s):
+    """#x → sqrt(x), #(x + 1) → sqrt(x + 1)"""
+    out = []
+    i = 0
+    while i < len(s):
+        if s[i] == '#':
+            inner, i = read_root_operand(s, i + 1)
+            out.append(f' sqrt({inner})')    # пробел: чтобы "2#x" стало "2 sqrt(x)", а не "2sqrt"
+        else:
+            out.append(s[i])
+            i += 1
+    return ''.join(out)
+
+
+def parse_side(text):
+    """Одна часть строки (до или после знака) → (выражение, LaTeX как ввёл пользователь)."""
+    text = text.strip()
+    if not text:
+        raise InputError('слева или справа от знака сравнения пусто')
+    expr = parse_expr(text, transformations=TRANSFORMS)
+    try:
+        # evaluate=False + order='none' — показываем так, как ввёл пользователь, без раскрытия скобок
+        shown = sp.latex(parse_expr(text, transformations=TRANSFORMS, evaluate=False), order='none')
+        shown = re.sub(r'(?<![\d.])1 \\cdot ', '', shown)   # «1 · 1/3» → «1/3»
+    except Exception:
+        shown = sp.latex(expr)
+    return expr, shown
+
+
+def parse_line(raw):
+    """Строка → (список условий, LaTeX для блока «Условие»).
+    Двойное неравенство 1 < x + 2 < 5 даёт два условия."""
+    s = normalize(raw)
+    check_missing_ops(s)
+    parts = REL_SPLIT.split(replace_roots(s))
+    sides, ops = parts[0::2], parts[1::2]
+    parsed = [parse_side(p) for p in sides]
+    if not ops:                              # просто выражение → считаем, что оно = 0
+        return [sp.Eq(parsed[0][0], 0)], parsed[0][1] + ' = 0'
+    rels = [REL_CLASS[op](parsed[k][0], parsed[k + 1][0]) for k, op in enumerate(ops)]
+    shown = parsed[0][1]
+    for k, op in enumerate(ops):
+        shown += ' ' + REL_LATEX[op] + ' ' + parsed[k + 1][1]
+    return rels, shown
+
+
+# ---------- Оформление ответа ----------
+
+def sort_key(a):
+    try:
+        return float(a.inf if isinstance(a, sp.Set) else a)
+    except Exception:
+        return 0.0
+
+
+def fmt_approx(v):
+    """√2 → «√2 ≈ 1.4142», у обычных дробей ничего не добавляем."""
+    if v.is_number and v.is_real and not v.is_Rational:
+        try:
+            a = f'{float(sp.N(v)):.4f}'.rstrip('0').rstrip('.')
+            if v.has(sp.CRootOf):             # «некрасивый» корень многочлена — только число
+                return r'\approx ' + a
+            return sp.latex(v) + r' \approx ' + a
+        except (TypeError, ValueError):
+            pass
+    return sp.latex(v)
+
+
+def fmt_end(v):
+    if v == -sp.oo:
+        return r'-\infty'
+    if v == sp.oo:
+        return r'+\infty'
+    return sp.latex(v)
+
+
+def fmt_interval(I):
+    left = '(' if I.left_open or I.start == -sp.oo else '['
+    right = ')' if I.right_open or I.end == sp.oo else ']'
+    return r'\left' + left + fmt_end(I.start) + r';\ ' + fmt_end(I.end) + r'\right' + right
+
+
+def fmt_set(S):
+    """Множество → школьная запись: (a; b], {1; 2}, (-∞; 2) ∪ (3; +∞)"""
+    if S is sp.S.EmptySet:
+        return r'\varnothing'
+    if S == sp.S.Reals:
+        return r'\left(-\infty;\ +\infty\right)'
+    if isinstance(S, sp.Interval):
+        return fmt_interval(S)
+    if isinstance(S, sp.FiniteSet):
+        return r'\left\{' + r';\ '.join(sp.latex(e) for e in sorted(S.args, key=sort_key)) + r'\right\}'
+    if isinstance(S, sp.Union):
+        return r' \cup '.join(fmt_set(a) for a in sorted(S.args, key=sort_key))
+    return sp.latex(S)
+
+
+def interval_as_ineq(I, x):
+    """(−14/17; +∞) → x > −14/17"""
+    X = sp.latex(x)
+    if I.start == -sp.oo:
+        return X + (' < ' if I.right_open else r' \le ') + sp.latex(I.end)
+    if I.end == sp.oo:
+        return X + (' > ' if I.left_open else r' \ge ') + sp.latex(I.start)
+    return (sp.latex(I.start) + (' < ' if I.left_open else r' \le ') + X
+            + (' < ' if I.right_open else r' \le ') + sp.latex(I.end))
+
+
+# ---------- Решение ----------
+
+def answer_one_var(rels, x):
+    S = sp.S.Reals
+    try:
+        for r in rels:
+            S = sp.Intersection(S, sp.solveset(r, x, domain=sp.S.Reals))
+    except NotImplementedError:
+        raise InputError('это выражение не получилось решить точно.')
+
+    X = sp.latex(x)
+    if S is sp.S.EmptySet:
+        return {'answer': [], 'note': 'Нет действительных решений.'}
+    if S == sp.S.Reals:
+        return {'answer': [X + r' \in ' + fmt_set(S)], 'note': f'{x.name} — любое число.'}
+    if isinstance(S, sp.FiniteSet):
+        vals = sorted(S.args, key=sort_key)
+        if len(vals) == 1:
+            return {'answer': [X + ' = ' + fmt_approx(vals[0])]}
+        return {'answer': ['{' + X + '}_{' + str(k) + '} = ' + fmt_approx(v)
+                           for k, v in enumerate(vals, 1)]}
+    if isinstance(S, sp.Interval):
+        return {'answer': [X + r' \in ' + fmt_set(S)], 'extra': [interval_as_ineq(S, x)]}
+    if isinstance(S, sp.Union):
+        return {'answer': [X + r' \in ' + fmt_set(S)]}
+    if isinstance(S, sp.ConditionSet):
+        return {'answer': [sp.latex(S)], 'note': 'Точно решить не получилось, это решение в общем виде.'}
+    return {'answer': [X + r' \in ' + sp.latex(S)]}
+
+
+def answer_many_vars(rels, syms):
+    if any(not isinstance(r, sp.Equality) for r in rels):
+        raise InputError('неравенства с несколькими переменными пока не поддерживаются. Оставьте одну переменную.')
+    try:
+        sols = sp.solve(rels, syms, dict=True)
+    except NotImplementedError:
+        raise InputError('эту систему не получилось решить точно.')
+    if not sols:
+        return {'answer': [], 'note': 'Нет действительных решений.'}
+
+    sols.sort(key=lambda sol: [sort_key(sol.get(s, 0)) for s in syms])
+    head = r'\left(' + r';\ '.join(sp.latex(s) for s in syms) + r'\right)'
+    lines, free = [], set()
+    for sol in sols:
+        if all(s in sol for s in syms):      # всё найдено → пара/тройка чисел (x; y)
+            lines.append(head + r' = \left(' + r';\ '.join(sp.latex(sol[s]) for s in syms) + r'\right)')
+        else:                                # решений бесконечно много → x = 5 - y
+            lines.append(r',\quad '.join(sp.latex(s) + ' = ' + sp.latex(v) for s, v in sol.items()))
+            free.update(s.name for s in syms if s not in sol)
+    res = {'answer': lines}
+    if free:
+        res['note'] = ', '.join(sorted(free)) + (' — любое число.' if len(free) == 1 else ' — любые числа.')
+    return res
+
+
+def solve_lines(lines):
+    rels, shown, names = [], [], set()
+    for num, raw in lines:
+        try:
+            line_rels, line_shown = parse_line(raw)
+        except InputError as e:
+            raise InputError(f'Строка {num}: {e}')
+        except Exception:
+            raise InputError(f'Строка {num}: не получилось разобрать «{raw}». Проверьте скобки и знаки.')
+        shown.append(line_shown)
+        rels.extend(line_rels)
+        for r in line_rels:
+            names.update(s.name for s in r.free_symbols)
+
+    if not names:
+        raise InputError('не найдено ни одной переменной (например, x).')
+
+    # Все переменные — действительные числа (в школе комплексные корни не нужны)
+    names = sorted(names)
+    syms = [sp.Symbol(n, real=True) for n in names]
+    rels = [r.xreplace({sp.Symbol(n): s for n, s in zip(names, syms)}) for r in rels]
+
+    if any(r == sp.false for r in rels):
+        result = {'answer': [], 'note': 'Нет действительных решений.'}
+    else:
+        rels = [r for r in rels if r != sp.true]
+        if len(syms) == 1:
+            result = answer_one_var(rels, syms[0])
+        elif not rels:
+            result = {'answer': [], 'note': 'Верно при любых значениях переменных.'}
+        else:
+            result = answer_many_vars(rels, syms)
+
+    result.update(success=True, items_latex=shown)
+    return result
+
+
+def solve_all(lines_json):
+    """Точка входа для JS: принимает [[номер строки, текст], ...], возвращает JSON."""
+    try:
+        return json.dumps(solve_lines(json.loads(lines_json)), ensure_ascii=False)
+    except InputError as e:
+        return json.dumps({'success': False, 'error': str(e)}, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({'success': False, 'error': 'Что-то пошло не так: ' + str(e)}, ensure_ascii=False)
+    </script>
+
     <script>
         let pyodide = null;
+        let solveAll = null;  // Python-функция solve_all из блока выше
 
         const inputsContainer = document.getElementById('inputsContainer');
         const addRowBtn = document.getElementById('addRowBtn');
@@ -382,7 +754,10 @@
         const closeExamplesBtn = document.getElementById('closeExamplesBtn');
         const cancelExamplesBtn = document.getElementById('cancelExamplesBtn');
 
+        const outputEl = document.getElementById('output');
+
         const confirmModal = document.getElementById('confirmModal');
+        const confirmTitle = document.getElementById('confirmTitle');
         const confirmText = document.getElementById('confirmText');
         const closeConfirmBtn = document.getElementById('closeConfirmBtn');
         const confirmYesBtn = document.getElementById('confirmYesBtn');
@@ -473,49 +848,52 @@ function showToast(message, type = 'error') {
             refreshTrashBtns();
         }
 
-        // Запрос на удаление с подтверждением (если в строке > 5 символов)
-        let pendingRow = null;
+        // ===== МОДАЛКА ПОДТВЕРЖДЕНИЯ (общая для удаления строки и очистки) =====
+        let confirmAction = null;  // что сделать, если нажали «Да»
 
+        function openConfirm({ title, text, yesText, onYes }) {
+            confirmTitle.textContent = title;
+            confirmText.textContent = text;
+            confirmYesBtn.textContent = yesText;
+            confirmAction = onYes;
+            confirmModal.classList.add('active');
+        }
+
+        function closeConfirm() {
+            confirmAction = null;
+            confirmModal.classList.remove('active');
+        }
+
+        confirmYesBtn.addEventListener('click', () => {
+            const action = confirmAction;
+            closeConfirm();
+            if (action) action();
+        });
+
+        confirmNoBtn.addEventListener('click', closeConfirm);
+        closeConfirmBtn.addEventListener('click', closeConfirm);
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) closeConfirm();
+        });
+
+        // Запрос на удаление с подтверждением (если в строке > 5 символов)
         function requestDeleteRow(row) {
             if (!row) return;
             const input = row.querySelector('.system-input');
             const text = (input?.value || '').trim();
 
             if (text.length > 5) {
-                pendingRow = row;
                 const rowIndex = Array.from(inputsContainer.querySelectorAll('.input-row')).indexOf(row) + 1;
-                confirmText.textContent = `Вы уверены, что хотите удалить строку номер ${rowIndex}?`;
-                confirmModal.classList.add('active');
+                openConfirm({
+                    title: 'Удалить строку?',
+                    text: `Вы уверены, что хотите удалить строку номер ${rowIndex}?`,
+                    yesText: 'Да, удалить',
+                    onYes: () => removeRow(row)
+                });
             } else {
                 removeRow(row);
             }
         }
-
-        // Модалка подтверждения
-        confirmYesBtn.addEventListener('click', () => {
-            if (pendingRow) {
-                removeRow(pendingRow);
-                pendingRow = null;
-            }
-            confirmModal.classList.remove('active');
-        });
-
-        confirmNoBtn.addEventListener('click', () => {
-            pendingRow = null;
-            confirmModal.classList.remove('active');
-        });
-
-        closeConfirmBtn.addEventListener('click', () => {
-            pendingRow = null;
-            confirmModal.classList.remove('active');
-        });
-
-        confirmModal.addEventListener('click', (e) => {
-            if (e.target === confirmModal) {
-                pendingRow = null;
-                confirmModal.classList.remove('active');
-            }
-        });
 
         // При загрузке страницы навешиваем корзины на существующие строки
         refreshTrashBtns();
@@ -550,8 +928,24 @@ function showToast(message, type = 'error') {
                 code: ['x^3 - 6x^2 + 11x - 6 = 0']
             },
             {
+                title: 'Уравнение с корнем',
+                code: ['#(x + 3) = x - 3']
+            },
+            {
                 title: 'Линейное неравенство',
                 code: ['2x + 5 > 10']
+            },
+            {
+                title: 'Квадратное неравенство',
+                code: ['x^2 - 5x + 6 < 0']
+            },
+            {
+                title: 'Дробное неравенство (метод интервалов)',
+                code: ['(x - 1) / (x + 2) >= 0']
+            },
+            {
+                title: 'Неравенство с корнем',
+                code: ['#(x - 1) < 3']
             },
             {
                 title: 'Система с дробью',
@@ -563,9 +957,13 @@ function showToast(message, type = 'error') {
             },
             {
                 title: 'Двойное неравенство',
-                code: ['1 < x + 2', 'x + 2 < 5']
+                code: ['1 < x + 2 < 5']
             },
-                {
+            {
+                title: 'Система неравенств',
+                code: ['2x - 1 > 3', 'x + 4 <= 10']
+            },
+            {
                 title: 'Неравенство со скобками',
                 code: ['4(2x - 3) >= 5(x + 1)']
             },
@@ -619,7 +1017,7 @@ function showToast(message, type = 'error') {
                 inputsContainer.appendChild(row);
             });
             refreshTrashBtns();
-            document.getElementById('output').innerHTML = '';
+            outputEl.innerHTML = '';
             showToast('Пример загружен — нажмите «Решить»', 'success');
         }
 
@@ -632,10 +1030,40 @@ function showToast(message, type = 'error') {
             if (e.target === examplesModal) examplesModal.classList.remove('active');
         });
 
-        // ===== ОЧИСТИТЬ ВСЁ =====
+        // ===== ОЧИСТИТЬ ВСЁ (с подтверждением) =====
         clearBtn.addEventListener('click', () => {
-            document.querySelectorAll('.system-input').forEach(input => input.value = '');
-            document.getElementById('output').innerHTML = '';
+            const hasText = Array.from(document.querySelectorAll('.system-input'))
+                                 .some(input => input.value.trim() !== '');
+            const hasResult = outputEl.innerHTML.trim() !== '';
+
+            if (!hasText && !hasResult) {
+                showToast('Тут и так пусто', 'info');
+                return;
+            }
+
+            openConfirm({
+                title: 'Очистить всё?',
+                text: 'Все введённые строки и результат решения будут стёрты.',
+                yesText: 'Да, очистить',
+                onYes: () => {
+                    document.querySelectorAll('.system-input').forEach(input => input.value = '');
+                    outputEl.innerHTML = '';
+                    showToast('Поля очищены', 'success');
+                }
+            });
+        });
+
+        // ===== КЛАВИАТУРА =====
+        // Enter в поле ввода — решить, Esc — закрыть открытое окно
+        inputsContainer.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !solveBtn.disabled) solveBtn.click();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            if (confirmModal.classList.contains('active')) closeConfirm();
+            helpModal.classList.remove('active');
+            examplesModal.classList.remove('active');
         });
 
         // ===== ИНИЦИАЛИЗАЦИЯ PYODIDE =====
@@ -646,6 +1074,10 @@ function showToast(message, type = 'error') {
                 statusEl.textContent = '📦 Загрузка пакета SymPy...';
 
                 await pyodide.loadPackage("sympy");
+
+                // Загружаем код решателя (блок <script type="text/x-python"> выше)
+                await pyodide.runPythonAsync(document.getElementById('pySolver').textContent);
+                solveAll = pyodide.globals.get('solve_all');
 
                 statusEl.textContent = '✅ КалькУлятор готов к работе!';
                 statusEl.classList.add('ready');
@@ -660,93 +1092,112 @@ function showToast(message, type = 'error') {
         initPyodide();
 
         // ===== РЕШЕНИЕ =====
+        function renderMath(latex, el) {
+            katex.render(latex, el, { throwOnError: false });
+        }
+
+        // Ошибка — через textContent, чтобы текст из поля не превратился в HTML
+        function showError(message, withHint = false) {
+            outputEl.innerHTML = '';
+            const card = document.createElement('div');
+            card.className = 'solver-card error-card';
+
+            const title = document.createElement('strong');
+            title.textContent = 'Ошибка: ';
+            card.append(title, message);
+
+            if (withHint) {
+                const hint = document.createElement('small');
+                hint.textContent = 'Нажмите «❓ Подсказка» для помощи по вводу.';
+                card.append(document.createElement('br'), hint);
+            }
+            outputEl.appendChild(card);
+        }
+
+        function renderResult(data) {
+            const isSystem = data.items_latex.length > 1;
+            outputEl.innerHTML = `
+                <div class="solver-card">
+                    <h3 style="margin-bottom: 15px;">Результат решения:</h3>
+
+                    <div class="step-block">
+                        <div class="step-title">${isSystem ? 'Введённая система:' : 'Условие:'}</div>
+                        <div class="math-box" id="conditionBox"></div>
+                    </div>
+
+                    <div class="step-block">
+                        <div class="step-title">Ответ:</div>
+                        <div id="answerBox"></div>
+                    </div>
+                </div>
+            `;
+
+            const condition = isSystem
+                ? `\\begin{cases} ${data.items_latex.join(' \\\\ ')} \\end{cases}`
+                : data.items_latex[0];
+            renderMath(condition, document.getElementById('conditionBox'));
+
+            const answerBox = document.getElementById('answerBox');
+
+            // Основной ответ: x ∈ (2; +∞), x₁ = 2, (x; y) = (3; 2) ...
+            (data.answer || []).forEach(latex => {
+                const line = document.createElement('div');
+                line.className = 'math-box answer-line';
+                renderMath(latex, line);
+                answerBox.appendChild(line);
+            });
+
+            // Тот же промежуток в виде неравенства: x > 2
+            (data.extra || []).forEach(latex => {
+                const line = document.createElement('div');
+                line.className = 'math-box answer-extra';
+                const label = document.createElement('span');
+                label.textContent = 'То же неравенством: ';
+                const math = document.createElement('span');
+                renderMath(latex, math);
+                line.append(label, math);
+                answerBox.appendChild(line);
+            });
+
+            // Пояснение текстом: «Нет действительных решений», «y — любое число»
+            if (data.note) {
+                const note = document.createElement('div');
+                note.className = 'answer-note';
+                note.textContent = data.note;
+                answerBox.appendChild(note);
+            }
+        }
+
         solveBtn.addEventListener('click', async () => {
-            const inputs = Array.from(document.querySelectorAll('.system-input'))
-                                .map(i => i.value.trim())
-                                .filter(v => v.length > 0);
+            // Берём непустые строки вместе с их номерами (для сообщений об ошибках)
+            const lines = Array.from(document.querySelectorAll('.system-input'))
+                               .map((input, i) => [i + 1, input.value.trim()])
+                               .filter(([, text]) => text.length > 0);
 
-            const output = document.getElementById('output');
-
-            if (inputs.length === 0) {
+            if (lines.length === 0) {
                 showToast("Заполните хотя бы одно поле!");
                 return;
             }
 
             solveBtn.disabled = true;
             solveBtn.textContent = '⏳ Обработка...';
-            output.innerHTML = '<div class="solver-card">Выполняем математический анализ...</div>';
+            outputEl.innerHTML = '<div class="solver-card">Выполняем математический анализ...</div>';
 
-            const pythonCode = `
-import sympy as sp
-import json
-from sympy.parsing.sympy_parser import (
-    parse_expr, standard_transformations,
-    implicit_multiplication_application, convert_xor
-)
-
-eq_strings = ${JSON.stringify(inputs)}
-transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
-
-def parse_item(s):
-    s = s.strip()
-    s = s.replace('≥', '>=').replace('≤', '<=').replace('≠', '!=')
-    for op, cls in [('>=', sp.GreaterThan), ('<=', sp.LessThan), ('>', sp.StrictGreaterThan), ('<', sp.StrictLessThan), ('=', sp.Eq)]:
-        if op in s:
-            l, r = s.split(op, 1)
-            return cls(parse_expr(l, transformations=transformations),
-                       parse_expr(r, transformations=transformations))
-    return sp.Eq(parse_expr(s, transformations=transformations), 0)
-
-try:
-    parsed_items = [parse_item(s) for s in eq_strings]
-    all_syms = sorted(set().union(*[item.free_symbols for item in parsed_items]), key=lambda s: s.name)
-
-    if not all_syms:
-        res = {"success": False, "error": "Не найдено переменных в выражении"}
-    else:
-        solutions = sp.solve(parsed_items, all_syms, dict=True)
-        res = {
-            "success": True,
-            "items_latex": [sp.latex(item) for item in parsed_items],
-            "solutions_latex": sp.latex(solutions) if solutions else "Нет\\\\ решений"
-        }
-except Exception as e:
-    res = {"success": False, "error": str(e)}
-
-json.dumps(res)
-`;
+            // Даём браузеру перерисовать кнопку, пока Python считает
+            await new Promise(resolve => setTimeout(resolve, 30));
 
             try {
-                const jsonRes = await pyodide.runPythonAsync(pythonCode);
-                const data = JSON.parse(jsonRes);
+                const data = JSON.parse(solveAll(JSON.stringify(lines)));
 
                 if (!data.success) {
-                    output.innerHTML = `<div class="solver-card error-card"><strong>Ошибка:</strong> ${data.error}<br><small>Нажмите «❓ Подсказка» для помощи по вводу.</small></div>`;
+                    showError(data.error, true);
                     return;
                 }
 
-                output.innerHTML = `
-                    <div class="solver-card">
-                        <h3 style="margin-bottom: 15px;">Результат решения:</h3>
-
-                        <div class="step-block">
-                            <div class="step-title">Введённая система:</div>
-                            <div id="step0" style="overflow-x: auto;"></div>
-                        </div>
-
-                        <div class="step-block">
-                            <div class="step-title">Решение:</div>
-                            <div id="step1" style="overflow-x: auto;"></div>
-                        </div>
-                    </div>
-                `;
-
-                const latexSystem = `\\begin{cases} ${data.items_latex.join(' \\\\ ')} \\end{cases}`;
-                katex.render(latexSystem, document.getElementById('step0'), { throwOnError: false });
-                katex.render(data.solutions_latex, document.getElementById('step1'), { throwOnError: false });
+                renderResult(data);
 
             } catch (err) {
-                output.innerHTML = `<div class="solver-card error-card">Ошибка выполнения: ${err.message}</div>`;
+                showError('Ошибка выполнения: ' + err.message);
             } finally {
                 solveBtn.disabled = false;
                 solveBtn.textContent = 'Решить ✨';
