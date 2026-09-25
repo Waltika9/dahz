@@ -704,12 +704,45 @@ try:
     if not all_syms:
         res = {"success": False, "error": "Не найдено переменных в выражении"}
     else:
-        solutions = sp.solve(parsed_items, all_syms, dict=True)
-        res = {
-            "success": True,
-            "items_latex": [sp.latex(item) for item in parsed_items],
-            "solutions_latex": sp.latex(solutions) if solutions else "Нет\\\\ решений"
-        }
+        # Проверяем: есть ли среди введённых выражений неравенство?
+        is_inequality = lambda it: isinstance(it, (
+            sp.GreaterThan, sp.LessThan,
+            sp.StrictGreaterThan, sp.StrictLessThan
+        ))
+        has_inequality = any(is_inequality(it) for it in parsed_items)
+
+        if has_inequality and len(parsed_items) == 1:
+            # Одиночное неравенство — решаем через reduce_inequalities
+            solution = sp.reduce_inequalities(parsed_items[0], all_syms[0])
+            res = {
+                "success": True,
+                "items_latex": eq_strings,
+                "solutions_latex": sp.latex(solution)
+            }
+        elif has_inequality:
+            # Система неравенств — объединяем через And
+            combined = sp.And(*parsed_items)
+            solution = sp.reduce_inequalities(combined, all_syms)
+            res = {
+                "success": True,
+                "items_latex": eq_strings,
+                "solutions_latex": sp.latex(solution)
+            }
+        else:
+            # Уравнение или система уравнений — обычный solve
+            solutions = sp.solve(parsed_items, all_syms, dict=True)
+            if not solutions:
+                solutions_latex = "Нет\\ решений"
+            elif len(solutions) == 1 and isinstance(solutions[0], dict):
+                pairs = [f"{sp.latex(k)} = {sp.latex(v)}" for k, v in solutions[0].items()]
+                solutions_latex = ", \\quad ".join(pairs)
+            else:
+                solutions_latex = sp.latex(solutions)
+            res = {
+                "success": True,
+                "items_latex": eq_strings,
+                "solutions_latex": solutions_latex
+            }
 except Exception as e:
     res = {"success": False, "error": str(e)}
 
