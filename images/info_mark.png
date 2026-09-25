@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Icon: info-circle
+  Set: Pixel Icon
+  Author: HackerNoon (https://github.com/hackernoon/pixel-icon-library)
+  License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  Source: https://iconify.design
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 24 24"
+     width="24"
+     height="24">
+  <title>Pixelated Information Icon</title>
+  <metadata>
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             xmlns:dc="http://purl.org/dc/elements/1.1/"
+             xmlns:cc="http://creativecommons.org/ns#">
+      <cc:Work rdf:about="">
+        <dc:title>Pixelated Information Icon</dc:title>
+        <dc:description>A pixelated information icon featuring a bold &quot;i&quot; inside a circular border. Ideal for retro-themed designs, user interfaces, help sections, or digital applications.</dc:description>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>HackerNoon</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:source>https://github.com/hackernoon/pixel-icon-library</dc:source>
+        <dc:rights>
+          <cc:Agent>
+            <dc:title>HackerNoon</dc:title>
+          </cc:Agent>
+        </dc:rights>
+        <cc:license rdf:resource="https://creativecommons.org/licenses/by/4.0/"/>
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+        <dc:subject>
+          <rdf:Bag>
+            <rdf:li>pixelated-icon</rdf:li>
+            <rdf:li>information-icon</rdf:li>
+            <rdf:li>retro-style</rdf:li>
+            <rdf:li>pixel-art</rdf:li>
+            <rdf:li>help-icon</rdf:li>
+            <rdf:li>info-symbol</rdf:li>
+            <rdf:li>circular-icon</rdf:li>
+            <rdf:li>digital-design</rdf:li>
+            <rdf:li>user-interface-icon</rdf:li>
+            <rdf:li>retro-UI</rdf:li>
+            <rdf:li>pixel-graphic</rdf:li>
+            <rdf:li>8-bit-style</rdf:li>
+            <rdf:li>tech-icon</rdf:li>
+            <rdf:li>support-icon</rdf:li>
+            <rdf:li>question-mark-alternative</rdf:li>
+          </rdf:Bag>
+        </dc:subject>
+      </cc:Work>
+      <cc:License rdf:about="https://creativecommons.org/licenses/by/4.0/">
+        <dc:title>CC BY 4.0 (CC-BY-4.0)</dc:title>
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <path fill="currentColor" d="M14 15v2h-4v-2h1v-5h-1V9h3v6zm-3-9h2v2h-2z"/><path fill="currentColor" d="M22 9V7h-1V5h-1V4h-1V3h-2V2h-2V1H9v1H7v1H5v1H4v1H3v2H2v2H1v6h1v2h1v2h1v1h1v1h2v1h2v1h6v-1h2v-1h2v-1h1v-1h1v-2h1v-2h1V9zm-1 6h-1v2h-1v1h-1v1h-1v1h-2v1H9v-1H7v-1H6v-1H5v-1H4v-2H3V9h1V7h1V6h1V5h1V4h2V3h6v1h2v1h1v1h1v1h1v2h1z"/><path fill="none" d="M0 0h24v24H0z"/>
+</svg>
