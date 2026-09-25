@@ -1,49 +1,6 @@
-const toast = document.getElementById('toast');
-const compilerModal = document.getElementById('compilerModal');
-const openCompilerBtn = document.getElementById('openCompilerBtn');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const soonCard = document.getElementById('soonCard');
-
-let toastTimeout;
-
-// type: '' (красный), 'success', 'info', 'warning' — цвета в style.css
-function showToast(message, type = '') {
-    clearTimeout(toastTimeout);
-    toast.textContent = message;
-    toast.className = 'toast show' + (type ? ' ' + type : '');
-    toastTimeout = setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
-}
-
-// Авторизация — в firebase.js
-
-// Открытие модалки
-openCompilerBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    compilerModal.classList.add('active');
-});
-
-// Закрытие по крестику
-closeModalBtn.addEventListener('click', () => {
-    compilerModal.classList.remove('active');
-});
-
-// Закрытие по фону
-compilerModal.addEventListener('click', (e) => {
-    if (e.target === compilerModal) {
-        compilerModal.classList.remove('active');
-    }
-});
-
-// Клик по карточке "soon"
-if (soonCard) {
-    soonCard.addEventListener('click', () => {
-        showToast("Скоро появятся новые проекты");
-    });
-}
-
 // ===== Анимация входа на главную страницу =====
+// Стоит в самом начале файла: даже если ниже что-то сломается,
+// шторка всё равно уберётся и сайт не останется чёрным.
 (function () {
     const curtain = document.getElementById('introCurtain');
     if (!curtain) return;
@@ -74,6 +31,49 @@ if (soonCard) {
         document.body.classList.remove('intro-playing');
     }, 1900);
 })();
+
+const toast = document.getElementById('toast');
+const compilerModal = document.getElementById('compilerModal');
+const openCompilerBtn = document.getElementById('openCompilerBtn');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const soonCard = document.getElementById('soonCard');
+
+let toastTimeout;
+
+// type: '' (красный), 'success', 'info', 'warning' — цвета в style.css
+function showToast(message, type = '') {
+    clearTimeout(toastTimeout);
+    toast.textContent = message;
+    toast.className = 'toast show' + (type ? ' ' + type : '');
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+// Авторизация — в firebase.js
+
+// Модалка выбора компилятора (?. — не падаем, если элемента нет на странице)
+openCompilerBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    compilerModal.classList.add('active');
+});
+
+// Закрытие по крестику
+closeModalBtn?.addEventListener('click', () => {
+    compilerModal.classList.remove('active');
+});
+
+// Закрытие по фону
+compilerModal?.addEventListener('click', (e) => {
+    if (e.target === compilerModal) {
+        compilerModal.classList.remove('active');
+    }
+});
+
+// Клик по карточке "soon"
+soonCard?.addEventListener('click', () => {
+    showToast("Скоро появятся новые проекты");
+});
 
 // Все карточки с классом "not-ready" показывают toast вместо перехода
 document.querySelectorAll('.not-ready').forEach(card => {

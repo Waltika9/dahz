@@ -15,7 +15,7 @@ import {
     getFirestore, collection, doc, onSnapshot, setDoc, getDoc, deleteDoc,
     writeBatch, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import * as gh from './github.js';
+import * as gh from './github.js?v=5';
 
 // Этот конфиг не секретный — он и должен быть виден в коде сайта.
 // Защиту дают правила Firestore.

@@ -295,6 +295,17 @@ header {
     overflow: hidden;
     pointer-events: none;
     --reveal: 0px;
+    /* Страховка: если JS не сработал, шторка сама исчезнет через 4 секунды */
+    animation: intro-failsafe 0.3s ease 4s forwards;
+}
+
+/* До начала волны шторка полностью чёрная с первого же кадра */
+.intro-curtain:not(.active) {
+    background: #010101;
+}
+
+@keyframes intro-failsafe {
+    to { opacity: 0; visibility: hidden; }
 }
 
 /* Чёрный слой с круглой дырой радиусом --reveal и мягким краем */

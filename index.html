@@ -9,7 +9,9 @@
     
     <title>Мои Проекты и ДЗ</title>
     <!-- Подключаем внешние стили -->
-    <link rel="stylesheet" href="style.css">
+    <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
+         иначе браузер может до 10 минут брать старую копию из кэша -->
+    <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body class="projects-loading">
 
@@ -204,8 +206,8 @@
     </div>
 
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
-    <script src="script.js"></script>
+    <script src="script.js?v=5"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
-    <script type="module" src="firebase.js"></script>
+    <script type="module" src="firebase.js?v=5"></script>
 </body>
 </html>
