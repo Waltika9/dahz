@@ -1,4 +1,3 @@
-const loginBtn = document.getElementById('loginBtn');
 const toast = document.getElementById('toast');
 const compilerModal = document.getElementById('compilerModal');
 const openCompilerBtn = document.getElementById('openCompilerBtn');
@@ -8,19 +7,17 @@ const soonCard = document.getElementById('soonCard');
 
 let toastTimeout;
 
-function showToast(message) {
+// type: '' (красный), 'success', 'info', 'warning' — цвета в style.css
+function showToast(message, type = '') {
     clearTimeout(toastTimeout);
     toast.textContent = message;
-    toast.classList.add('show');
+    toast.className = 'toast show' + (type ? ' ' + type : '');
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
     }, 3000);
 }
 
-// Авторизация
-loginBtn.addEventListener('click', () => {
-    showToast("Вход и авторизация временно недоступны");
-});
+// Авторизация — в firebase.js
 
 // Открытие модалки
 openCompilerBtn.addEventListener('click', (e) => {

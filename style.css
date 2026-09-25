@@ -324,3 +324,264 @@ body.intro-locked {
 .toast.info    { background: #3b82f6; }   /* синий — инфо */
 .toast.warning { background: #f59e0b; }   /* жёлтый — предупреждение */
 /* .toast по умолчанию остаётся красным (error) */
+
+/* ===== Статусы проектов (firebase.js) ===== */
+
+/* Пока статусы грузятся — карточки не видны, чтобы скрытый проект не мелькал */
+body.projects-loading .project-card[data-project-id] {
+    visibility: hidden;
+}
+
+.project-card.is-hidden-admin   { opacity: 0.45; }
+
+/* Контейнер карточек из базы не ломает отступы списка */
+.project-cards { display: contents; }
+
+/* Название + автор под ним */
+.project-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.project-author {
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+/* Панель аккаунта над списком */
+.account-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.account-bar[hidden] { display: none; }
+
+body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
+
+.status-tag {
+    align-self: flex-start;
+    background: #fef08a;                               /* в разработке — жёлтый */
+}
+.status-tag.status-unavailable { background: #fca5a5; } /* недоступен — красный */
+.status-tag.status-updating    { background: #bfdbfe; } /* обновляется — синий */
+.status-tag.status-pending     { background: #e9d5ff; } /* заявка — фиолетовый */
+
+/* Панель владельца на карточке */
+.admin-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--border-color);
+}
+
+.admin-btn {
+    border: 2px solid var(--border-color);
+    background: var(--card-bg);
+    box-shadow: 2px 2px 0px var(--border-color);
+    padding: 5px 10px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.admin-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0px var(--border-color);
+    background: var(--accent-hover);
+}
+
+.admin-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--border-color);
+}
+
+.admin-btn.active { background: #bbf7d0; }
+
+.admin-btn.danger { background: #fee2e2; }
+.admin-btn.danger:hover { background: #fca5a5; }
+
+/* Вторая строка панели: изменить / увековечить / удалить */
+.admin-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.eternal-mark {
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 5px 0;
+}
+
+/* ===== Окна проекта / токена / подтверждения ===== */
+.modal-window.modal-wide { max-width: 460px; }
+
+.modal-window form.login-form {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 2px 6px 6px 2px;   /* место для теней полей */
+}
+
+.form-hint {
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500 !important;
+    cursor: pointer;
+}
+
+.check-row[hidden] { display: none; }
+
+/* Поля, которые видит только владелец */
+.member-form .admin-only { display: none; }
+
+.confirm-text {
+    margin: 15px 0;
+    line-height: 1.5;
+}
+
+.modal-btn.danger { background: #fee2e2; }
+.modal-btn.danger:hover { background: #fca5a5; }
+
+/* ===== Окно входа ===== */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+}
+
+.login-form label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.login-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 3px solid var(--border-color);
+    box-shadow: 3px 3px 0px var(--border-color);
+    font-size: 1rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-input:focus {
+    outline: none;
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px var(--border-color);
+    background: #fffde7;
+}
+
+.login-form[hidden] { display: none; }
+
+.login-form .modal-btn { margin-top: 10px; }
+
+/* Кнопка-ссылка «Ещё нет аккаунта? / Уже есть аккаунт?» */
+.auth-switch {
+    background: none;
+    border: none;
+    margin-top: 4px;
+    padding: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-color);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    align-self: center;
+    transition: color 0.15s ease;
+}
+
+.auth-switch:hover { color: #475569; }
+
+/* Подпись + значок i в одной строке */
+.label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-wrap { position: relative; display: inline-flex; }
+
+.info-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid var(--border-color);
+    background: var(--card-bg);
+    box-shadow: 2px 2px 0px var(--border-color);
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.info-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;   /* пиксельная иконка остаётся чёткой */
+}
+
+.info-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px var(--border-color);
+}
+
+/* Всплывающая подсказка (как у браузера при неверном email) */
+.info-tip {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: -12px;
+    width: 250px;
+    max-width: 70vw;
+    padding: 8px 10px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    box-shadow: 3px 3px 0px var(--border-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.4;
+    z-index: 10;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Уголок-стрелка */
+.info-tip::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 16px;
+    width: 12px;
+    height: 12px;
+    background: var(--card-bg);
+    border-left: 2px solid var(--border-color);
+    border-top: 2px solid var(--border-color);
+    transform: rotate(45deg);
+}
+
+.info-tip.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+.login-form .modal-btn:disabled { opacity: 0.6; cursor: wait; }

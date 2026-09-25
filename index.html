@@ -11,7 +11,7 @@
     <!-- Подключаем внешние стили -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="projects-loading">
 
         <!-- Анимированный переход при входе -->
     <div class="intro-curtain" id="introCurtain">
@@ -23,7 +23,7 @@
         <div class="welcome-text">
             Добро пожаловать, тут я хочу собирать все проекты... By Waltika
         </div>
-        <button class="btn" id="loginBtn">Войти/Авторизоваться</button>
+        <button class="btn" id="loginBtn">Войти/Зарегистрироваться</button>
     </header>
 
     <!-- Навигация -->
@@ -32,33 +32,17 @@
         <button class="btn" id="openCompilerBtn">Открыть компилятор</button>
     </div>
 
+    <!-- Панель аккаунта (появляется после входа) -->
+    <div class="account-bar" id="accountBar" hidden>
+        <button class="btn" id="createProjectBtn" type="button">➕ Создать проект</button>
+        <button class="btn" id="tokenBtn" type="button" hidden>🔑 Токен GitHub</button>
+    </div>
+
     <!-- Карточки проектов -->
     <div class="projects-list">
 
-        <!-- Проект 1: Авиабилеты -->
- <a href="projects/aviasales.html" class="project-card">
-            <div class="project-header">
-                <span class="project-title">Продажа авиабилетов ✈️</span>
-                <span class="project-tag">aviasales.html</span>
-            </div>
-        </a>
-
-        <!-- Проект 2: Калькулятор с превью -->
-        <a href="projects/calc.html" class="project-card">
-            <div class="project-header">
-                <span class="project-title">КалькУлятор</span>
-                <span class="project-tag">calc.html</span>
-            </div>
-            <img src="images/gumball-calculator.jpg" alt="Превью Калькулятора" class="project-preview" onerror="this.style.display='none'">
-        </a>
-
-        <!-- Проект 3: Глубокий Больной ✨ -->
-        <a href="projects/glubokiy_bolnoy/index.html" class="project-card">
-            <div class="project-header">
-                <span class="project-title">Глубокий Больной ✨</span>
-                <span class="project-tag">glubokiy_bolnoy.js</span>
-            </div>
-        </a>
+        <!-- Проекты рисуются из базы (firebase.js). Основные три заданы там же в BUILTIN_PROJECTS -->
+        <div id="projectCards" class="project-cards"></div>
 
         <!-- Проект 4 (Заглушка со служебным ID для клика) -->
         <div class="project-card" id="soonCard" style="cursor: pointer;">
@@ -113,7 +97,113 @@
         </div>
     </div>
 
+    <!-- Модальное окно входа / регистрации -->
+    <div id="loginModal" class="modal-overlay">
+        <div class="modal-window">
+            <button class="modal-close" id="closeLoginBtn" type="button">×</button>
+            <h3 class="modal-title" id="authTitle">Вход</h3>
+
+            <!-- Вход -->
+            <form class="login-form" id="loginForm">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" class="login-input" autocomplete="username" required>
+                <label for="loginPassword">Пароль</label>
+                <input type="password" id="loginPassword" class="login-input" autocomplete="current-password" required>
+                <button type="submit" class="modal-btn" id="loginSubmit">Войти</button>
+                <button type="button" class="auth-switch" id="toRegisterBtn">Ещё нет аккаунта? Зарегистрироваться</button>
+            </form>
+
+            <!-- Регистрация -->
+            <form class="login-form" id="registerForm" hidden>
+                <div class="label-row">
+                    <label for="regCode">Код приглашения</label>
+                    <span class="info-wrap">
+                        <button type="button" class="info-btn" id="inviteInfoBtn" aria-label="Подробнее о коде приглашения">
+                            <img src="images/info_mark.png" alt="" onerror="this.replaceWith('i')">
+                        </button>
+                        <span class="info-tip" id="inviteInfoTip" role="tooltip">
+                            К сожалению, создание аккаунта недоступно из-за ограничений. Для дополнительной информации обратитесь к Waltika.
+                        </span>
+                    </span>
+                </div>
+                <input type="text" id="regCode" class="login-input" autocomplete="off" required>
+                <label for="regNickname">Никнейм (будет виден как автор проектов)</label>
+                <input type="text" id="regNickname" class="login-input" autocomplete="nickname" minlength="2" maxlength="30" required>
+                <label for="regEmail">Email</label>
+                <input type="email" id="regEmail" class="login-input" autocomplete="username" required>
+                <label for="regPassword">Пароль</label>
+                <input type="password" id="regPassword" class="login-input" autocomplete="new-password" minlength="6" required>
+                <label for="regPassword2">Повторите пароль</label>
+                <input type="password" id="regPassword2" class="login-input" autocomplete="new-password" minlength="6" required>
+                <button type="submit" class="modal-btn" id="registerSubmit">Зарегистрироваться</button>
+                <button type="button" class="auth-switch" id="toLoginBtn">Уже есть аккаунт? Войти</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: создание / изменение проекта -->
+    <div id="projectModal" class="modal-overlay">
+        <div class="modal-window modal-wide">
+            <button class="modal-close" id="closeProjectBtn" type="button">×</button>
+            <h3 class="modal-title" id="projectModalTitle">Новый проект</h3>
+            <form class="login-form" id="projectForm">
+                <label for="projTitle">Название</label>
+                <input type="text" id="projTitle" class="login-input" maxlength="80" required>
+
+                <label for="projLink">Ссылка</label>
+                <input type="text" id="projLink" class="login-input" maxlength="300" placeholder="projects/game.html или https://...">
+                <small class="form-hint" id="projLinkHint">Файл в папке projects или ссылка на сайт (https://...)</small>
+
+                <label class="check-row admin-only" id="projCreateFileRow">
+                    <input type="checkbox" id="projCreateFile" checked>
+                    Создать файл-заготовку на GitHub, если его ещё нет
+                </label>
+
+                <label for="projAuthor" class="admin-only">Автор</label>
+                <input type="text" id="projAuthor" class="login-input admin-only" maxlength="40">
+
+                <label for="projImage" class="admin-only">Картинка-превью (необязательно)</label>
+                <input type="file" id="projImage" class="login-input admin-only" accept="image/png, image/jpeg, image/gif, image/webp">
+
+                <button type="submit" class="modal-btn" id="projectSubmit">Создать</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: токен GitHub -->
+    <div id="tokenModal" class="modal-overlay">
+        <div class="modal-window modal-wide">
+            <button class="modal-close" id="closeTokenBtn" type="button">×</button>
+            <h3 class="modal-title">Токен GitHub</h3>
+            <form class="login-form" id="tokenForm">
+                <p class="form-hint">
+                    Нужен, чтобы сайт мог создавать файлы в репозитории.
+                    Сохраняется только в этом браузере и никуда не отправляется, кроме GitHub.
+                </p>
+                <label for="tokenInput">Токен</label>
+                <input type="password" id="tokenInput" class="login-input" autocomplete="off" placeholder="github_pat_...">
+                <button type="submit" class="modal-btn" id="tokenSubmit">Сохранить</button>
+                <button type="button" class="auth-switch" id="tokenRemoveBtn">Удалить токен из этого браузера</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: подтверждение -->
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-window">
+            <button class="modal-close" id="closeConfirmBtn" type="button">×</button>
+            <h3 class="modal-title" id="confirmTitle">Вы уверены?</h3>
+            <p id="confirmText" class="confirm-text"></p>
+            <div class="modal-buttons">
+                <button class="modal-btn danger" id="confirmYesBtn" type="button">Да</button>
+                <button class="modal-btn" id="confirmNoBtn" type="button">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
     <script src="script.js"></script>
+    <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
+    <script type="module" src="firebase.js"></script>
 </body>
 </html>
