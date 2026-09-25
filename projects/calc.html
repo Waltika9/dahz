@@ -712,13 +712,14 @@ try:
         has_inequality = any(is_inequality(it) for it in parsed_items)
 
         if has_inequality and len(parsed_items) == 1:
-            # Одиночное неравенство — решаем через reduce_inequalities
-            solution = sp.reduce_inequalities(parsed_items[0], all_syms[0])
-            res = {
-                "success": True,
-                "items_latex": eq_strings,
-                "solutions_latex": sp.latex(solution)
-            }
+    # Одиночное неравенство — solveset даёт интервал вида (−∞, 16)
+    solution_set = sp.solveset(parsed_items[0], all_syms[0], domain=sp.S.Reals)
+    res = {
+        "success": True,
+        "items_latex": eq_strings,
+        "solutions_latex": sp.latex(solution_set)
+    }
+    
         elif has_inequality:
             # Система неравенств — объединяем через And
             combined = sp.And(*parsed_items)
