@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Компилятор</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+    <!-- Подключаем стили сайта -->
+    <link rel="stylesheet" href="../style.css">
+
+    <!-- Редактор CodeMirror и тема Monokai (как у Python IDE) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/xml-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/html-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/css-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/javascript-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/xml-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/matchtags.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/comment/comment.min.js"></script>
+
+    <style>
+        /* Тот же тёмный стиль, что у Python IDE */
+        body {
+            background-color: #1e1e1e;
+            color: #f8f8f2;
+            --border-color: #444444;
+            --card-bg: #252526;
+        }
+
+        .btn {
+            border: 2px solid #444444 !important;
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            box-shadow: 3px 3px 0px #444444 !important;
+        }
+
+        .btn:hover {
+            background: #3e3e3e !important;
+            box-shadow: 4px 4px 0px #444444 !important;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .auto-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            color: #cccccc;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .status-line {
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #888888;
+        }
+
+        .compiler-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        /* Вкладки файлов */
+        .tabs {
+            display: flex;
+            gap: 6px;
+            padding: 8px 8px 0;
+            background: #252526;
+            border-bottom: 2px solid #444444;
+        }
+
+        .tab {
+            border: 2px solid #444444;
+            border-bottom: none;
+            background: #2d2d2d;
+            color: #aaaaaa;
+            padding: 6px 14px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .tab:hover { color: #ffffff; }
+
+        .tab.active {
+            background: #272822;
+            color: #ffffff;
+            box-shadow: inset 0 3px 0 #a6e22e;
+        }
+
+        .editor-wrapper {
+            border: 2px solid #444444;
+            box-shadow: 4px 4px 0px #444444;
+            background: #272822;
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        .CodeMirror {
+            height: 320px;
+            font-size: 15px;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+        }
+
+        .CodeMirror-activeline-background { background: #3e3d32 !important; }
+        .CodeMirror-matchingtag { background: rgba(166, 226, 46, 0.2); }
+
+        /* Предпросмотр и консоль */
+        .panel {
+            border: 2px solid #444444;
+            background: #272822;
+            box-shadow: 4px 4px 0px #444444;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .panel-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            padding: 8px 15px;
+            border-bottom: 1px solid #3e3d32;
+        }
+
+        .clear-link {
+            background: none;
+            border: none;
+            color: #888888;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .clear-link:hover { color: #f8f8f2; }
+
+        .preview-frame {
+            display: block;
+            width: 100%;
+            height: 380px;
+            border: none;
+            background: #ffffff;
+        }
+
+        .console {
+            min-height: 60px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px 15px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-log   { color: #f8f8f2; }
+        .log-info  { color: #66d9ef; }
+        .log-warn  { color: #e6db74; }
+        .log-error { color: #f92672; }
+        .log-muted { color: #888888; }
+
+        /* Подсказки в тёмной теме */
+        .CodeMirror-hints {
+            background: #252526;
+            border: 2px solid #444444;
+            box-shadow: 3px 3px 0px #444444;
+            border-radius: 0;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 240px;
+            z-index: 50;
+        }
+
+        .CodeMirror-hint {
+            color: #f8f8f2;
+            padding: 2px 8px;
+            border-radius: 0;
+        }
+
+        li.CodeMirror-hint-active {
+            background: #3e3e3e;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="../index.html" class="btn">← На главную</a>
+        <div class="welcome-text" style="color: #ffffff;">HTML IDE</div>
+    </header>
+
+    <div class="controls">
+        <button class="btn" id="runBtn">▶ Запустить (Ctrl+Enter)</button>
+        <button class="btn" id="openTabBtn">↗ Открыть в новой вкладке</button>
+        <label class="auto-toggle">
+            <input type="checkbox" id="autoRun" checked> Автообновление
+        </label>
+    </div>
+    <div class="status-line">
+        Подсказки появляются при наборе (или Ctrl+Space). Напиши <b>!</b> и нажми <b>Tab</b> — появится заготовка страницы.
+    </div>
+
+    <div class="compiler-container">
+        <!-- Редактор с вкладками -->
+        <div class="editor-wrapper">
+            <div class="tabs">
+                <button class="tab active" data-file="html" type="button">index.html</button>
+                <button class="tab" data-file="css" type="button">style.css</button>
+                <button class="tab" data-file="js" type="button">script.js</button>
+            </div>
+            <textarea id="codeEditor"></textarea>
+        </div>
+
+        <!-- Результат -->
+        <div class="panel">
+            <div class="panel-title">Результат:</div>
+            <!-- sandbox без allow-same-origin: код страницы не видит данные сайта -->
+            <iframe class="preview-frame" id="preview" sandbox="allow-scripts allow-modals allow-forms allow-popups" title="Предпросмотр"></iframe>
+        </div>
+
+        <!-- Консоль -->
+        <div class="panel">
+            <div class="panel-title">
+                <span>Консоль:</span>
+                <button class="clear-link" id="clearConsoleBtn" type="button">очистить</button>
+            </div>
+            <div class="console" id="console"><span class="log-muted">Сюда попадает console.log() и ошибки JavaScript.</span></div>
+        </div>
+    </div>
+
+    <script>
+        // ===== ФАЙЛЫ ПО УМОЛЧАНИЮ =====
+        const DEFAULTS = {
+            html: `<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Моя страница</title>
+</head>
+<body>
+    <h1>Привет, мир!</h1>
+    <button id="btn">Нажми меня</button>
+</body>
+</html>
+`,
+            css: `body {
+    font-family: sans-serif;
+    padding: 20px;
+}
+
+h1 {
+    color: #3b82f6;
+}
+`,
+            js: `document.getElementById('btn').addEventListener('click', () => {
+    console.log('Кнопка нажата!');
+});
+`
+        };
+
+        const MODES = { html: 'htmlmixed', css: 'css', js: 'javascript' };
+        const STORAGE_KEY = 'htmlcomp_files';
+
+        // Загружаем сохранённые файлы (если есть)
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { }
+
+        // Отдельный документ на каждую вкладку — у каждого своя история Ctrl+Z
+        const docs = {};
+        for (const file of Object.keys(MODES)) {
+            docs[file] = CodeMirror.Doc(saved[file] ?? DEFAULTS[file], MODES[file]);
+        }
+        let currentFile = 'html';
+
+        // ===== РЕДАКТОР =====
+        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+            theme: 'monokai',
+            lineNumbers: true,
+            indentUnit: 4,
+            tabSize: 4,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            autoCloseTags: true,
+            matchTags: { bothTags: true },
+            styleActiveLine: true,
+            extraKeys: {
+                'Ctrl-Space': 'autocomplete',
+                'Ctrl-Enter': () => runCode(),
+                'Cmd-Enter': () => runCode(),
+                'Ctrl-/': 'toggleComment',
+                'Cmd-/': 'toggleComment',
+                'Tab': (cm) => {
+                    if (currentFile === 'html' && expandBoilerplate(cm)) return;
+                    if (cm.somethingSelected()) cm.indentSelection('add');
+                    else cm.replaceSelection(' '.repeat(cm.getOption('indentUnit')));
+                },
+                'Shift-Tab': (cm) => cm.indentSelection('subtract')
+            },
+            hintOptions: { completeSingle: false, hint: smartHint }
+        });
+
+        // Подсказка по тому, что под курсором: HTML-теги, CSS-свойства или JS
+        function smartHint(cm, options) {
+            const mode = cm.getModeAt(cm.getCursor()).name;
+            if (mode === 'css') return CodeMirror.hint.css(cm, options);
+            if (mode === 'javascript') return CodeMirror.hint.javascript(cm, options);
+            return CodeMirror.hint.html(cm, options);
+        }
+        editor.swapDoc(docs.html);
+
+        // «!» + Tab → заготовка HTML-страницы (как Emmet в VS Code)
+        function expandBoilerplate(cm) {
+            const cur = cm.getCursor();
+            const line = cm.getLine(cur.line);
+            if (line.trim() !== '!' || cur.ch !== line.length) return false;
+            cm.replaceRange(DEFAULTS.html.trimEnd(), CodeMirror.Pos(cur.line, 0), cur);
+            return true;
+        }
+
+        // Переключение вкладок
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                currentFile = tab.dataset.file;
+                tabs.forEach(t => t.classList.toggle('active', t === tab));
+                editor.swapDoc(docs[currentFile]);
+                editor.focus();
+            });
+        });
+
+        // Подсказки появляются сами при наборе
+        editor.on('inputRead', (cm, change) => {
+            if (change.origin !== '+input' || cm.state.completionActive) return;
+            const typed = change.text[change.text.length - 1];
+            const token = cm.getTokenAt(cm.getCursor());
+            if (/comment|string/.test(token.type || '')) return;
+
+            const mode = cm.getModeAt(cm.getCursor()).name;   // внутри HTML может быть <style> или <script>
+            const trigger =
+                (mode === 'xml' && typed.endsWith('<')) ||
+                (mode === 'xml' && /[\w\s]$/.test(typed) && /tag|attribute/.test(token.type || '')) ||
+                (mode === 'css' && /[\w:-]$/.test(typed)) ||
+                (mode === 'javascript' && /[\w.]$/.test(typed));
+            if (trigger) cm.showHint();
+        });
+
+        // ===== ЗАПУСК =====
+        const preview = document.getElementById('preview');
+        const consoleEl = document.getElementById('console');
+        const autoRun = document.getElementById('autoRun');
+
+        // Этот скрипт встраивается в страницу и пересылает console.log и ошибки в нашу консоль
+        const CONSOLE_BRIDGE = `<script>(function () {
+    function send(level, args, line) {
+        try {
+            parent.postMessage({ htmlcomp: true, level: level, line: line || 0, args: args.map(function (a) {
+                if (a instanceof Error) return a.name + ': ' + a.message;
+                if (typeof a === 'object' && a !== null) { try { return JSON.stringify(a); } catch (e) { } }
+                return String(a);
+            }) }, '*');
+        } catch (e) { }
+    }
+    ['log', 'info', 'warn', 'error'].forEach(function (level) {
+        var original = console[level];
+        console[level] = function () {
+            var args = Array.prototype.slice.call(arguments);
+            send(level, args);
+            original.apply(console, args);
+        };
+    });
+    window.addEventListener('error', function (e) {
+        send('error', [e.message], e.lineno);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        send('error', ['Promise: ' + (e.reason && e.reason.message || e.reason)]);
+    });
+})();<\/script>`;
+
+        // Собираем одну страницу из трёх файлов
+        function buildPage() {
+            const html = docs.html.getValue();
+            const css = docs.css.getValue();
+            const js = docs.js.getValue().replace(/<\/script/gi, '<\\/script');
+
+            const head = CONSOLE_BRIDGE + `<style>\n${css}\n</style>`;
+            const tail = `<script>\n${js}\n<\/script>`;
+
+            let page = /<head[^>]*>/i.test(html)
+                ? html.replace(/<head[^>]*>/i, (m) => m + head)
+                : head + html;
+            page = /<\/body>/i.test(page)
+                ? page.replace(/<\/body>/i, () => tail + '</body>')
+                : page + tail;
+
+            // С какой строки собранной страницы начинается script.js (для номеров строк в ошибках)
+            jsStartLine = page.slice(0, page.lastIndexOf(tail)).split('\n').length + 1;
+            return page;
+        }
+
+        let jsStartLine = 0;
+
+        // Номер строки собранной страницы → «script.js, строка N» или «index.html»
+        function whereText(line) {
+            if (!line) return '';
+            return line >= jsStartLine
+                ? ` (script.js, строка ${line - jsStartLine + 1})`
+                : ' (index.html)';
+        }
+
+        function logLine(level, text) {
+            const line = document.createElement('div');
+            line.className = 'log-' + level;
+            line.textContent = text;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function runCode() {
+            consoleEl.innerHTML = '';
+            preview.srcdoc = buildPage();
+        }
+
+        window.addEventListener('message', (e) => {
+            if (e.source !== preview.contentWindow || !e.data || !e.data.htmlcomp) return;
+            const prefix = { warn: '⚠ ', error: '✖ ' }[e.data.level] || '';
+            logLine(e.data.level, prefix + e.data.args.join(' ') + whereText(e.data.line));
+        });
+
+        document.getElementById('runBtn').addEventListener('click', runCode);
+        document.getElementById('clearConsoleBtn').addEventListener('click', () => { consoleEl.innerHTML = ''; });
+
+        // Открыть результат отдельной страницей
+        document.getElementById('openTabBtn').addEventListener('click', () => {
+            const blob = new Blob([buildPage()], { type: 'text/html' });
+            window.open(URL.createObjectURL(blob), '_blank');
+        });
+
+        // Сохранение + автообновление (с паузой, чтобы не перезапускать на каждую букву)
+        let timer;
+        editor.on('change', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                try {
+                    const files = {};
+                    for (const file of Object.keys(docs)) files[file] = docs[file].getValue();
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+                } catch { }
+                if (autoRun.checked) runCode();
+            }, 700);
+        });
+
+        runCode();
+    </script>
+</body>
+</html>

@@ -4,20 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Python Компилятор</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
     <!-- Подключаем стили сайта -->
     <link rel="stylesheet" href="../style.css">
-    
+
     <!-- Редактор CodeMirror и популярная тема Monokai -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.css">
-    
-    <!-- Pyodide и CodeMirror JS -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+
+    <!-- Pyodide (Python 3.13 в браузере) и CodeMirror JS -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.1/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/python-hint.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/comment/comment.min.js"></script>
 
     <style>
         /* Мягкий тёмно-серый фон страницы */
@@ -41,6 +45,12 @@
             box-shadow: 4px 4px 0px #444444 !important;
         }
 
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
         .compiler-container {
             display: flex;
             flex-direction: column;
@@ -50,8 +60,16 @@
 
         .controls {
             display: flex;
+            flex-wrap: wrap;
             justify-content: flex-start;
             align-items: center;
+            gap: 12px;
+        }
+
+        .status-line {
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #888888;
         }
 
         /* Мягкая рамка для блока редактора */
@@ -65,31 +83,117 @@
 
         /* Настройка размеров и шрифта редактора */
         .CodeMirror {
-            height: 300px;
+            height: 320px;
             font-size: 15px;
             font-family: 'Consolas', 'Courier New', Courier, monospace;
         }
 
-        /* Мягкая рамка для консоли вывода */
+        .CodeMirror-activeline-background { background: #3e3d32 !important; }
+
+        /* Терминал */
         .output-box {
             border: 2px solid #444444;
             background: #272822;
-            color: #a6e22e; /* Красивый зеленый текст Monokai */
+            color: #f8f8f2;
             padding: 15px;
             box-shadow: 4px 4px 0px #444444;
-            min-height: 120px;
-            font-family: 'Consolas', monospace;
-            white-space: pre-wrap;
-            overflow-y: auto;
             border-radius: 4px;
         }
 
         .output-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-weight: bold;
             margin-bottom: 8px;
             color: #f8f8f2;
             border-bottom: 1px solid #3e3d32;
             padding-bottom: 5px;
+        }
+
+        .clear-link {
+            background: none;
+            border: none;
+            color: #888888;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .clear-link:hover { color: #f8f8f2; }
+
+        .terminal {
+            min-height: 140px;
+            max-height: 360px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            cursor: text;
+        }
+
+        .term-muted { color: #888888; }
+        .term-error { color: #f92672; }
+        .term-input-text { color: #e6db74; }
+
+        /* Поле ввода прямо в терминале (для input()) */
+        .term-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e6db74;
+            font: inherit;
+            min-width: 60px;
+            width: 50%;
+            padding: 0;
+            caret-color: #f8f8f2;
+        }
+
+        /* ===== Подсказки в тёмной теме ===== */
+        .CodeMirror-hints {
+            background: #252526;
+            border: 2px solid #444444;
+            box-shadow: 3px 3px 0px #444444;
+            border-radius: 0;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 240px;
+            z-index: 50;
+        }
+
+        .CodeMirror-hint {
+            color: #f8f8f2;
+            padding: 2px 8px;
+            border-radius: 0;
+        }
+
+        li.CodeMirror-hint-active {
+            background: #3e3e3e;
+            color: #ffffff;
+        }
+
+        .hint-kind {
+            display: inline-block;
+            width: 16px;
+            margin-right: 6px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .hint-function .hint-kind { color: #a6e22e; }
+        .hint-class .hint-kind    { color: #66d9ef; }
+        .hint-module .hint-kind   { color: #fd971f; }
+        .hint-keyword .hint-kind  { color: #f92672; }
+        .hint-other .hint-kind    { color: #ae81ff; }
+
+        .hint-type {
+            float: right;
+            margin-left: 16px;
+            color: #888888;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -101,81 +205,339 @@
     </header>
 
     <div class="controls">
-        <button class="btn" id="runBtn">▶ Запустить (Ctrl+Enter)</button>
+        <button class="btn" id="runBtn" disabled>▶ Запустить (Ctrl+Enter)</button>
+        <button class="btn" id="stopBtn" disabled>■ Стоп</button>
     </div>
+    <div class="status-line" id="statusLine">Загрузка ядра Python... Подождите пару секунд.</div>
 
     <div class="compiler-container">
         <!-- Панель редактора -->
         <div class="editor-wrapper">
-            <textarea id="codeEditor">#Это просто мой личный компилятор ;)</textarea>
+            <textarea id="codeEditor">#Это просто мой личный компилятор ;)
+name = input("Как тебя зовут? ")
+print(f"Привет, {name}!")
+</textarea>
         </div>
 
-        <!-- Консоль вывода -->
+        <!-- Терминал -->
         <div class="output-box">
-            <div class="output-title">Результат выполнения:</div>
-            <div id="output" style="color: #888888;">Загрузка ядра Python... Подождите пару секунд.</div>
+            <div class="output-title">
+                <span>Терминал:</span>
+                <button class="clear-link" id="clearBtn" type="button">очистить</button>
+            </div>
+            <div class="terminal" id="terminal"><span class="term-muted">Здесь появится результат. Если программа вызовет input(), ответ вводится прямо здесь.</span></div>
         </div>
     </div>
 
-    <script>
-        let pyodideReady = false;
-        let pyodide;
+    <!-- Python-часть: input() через терминал и подсказки Jedi -->
+    <script type="text/x-python" id="pyBootstrap">
+import builtins
+import sys
+import js
+from pyodide.ffi import run_sync, can_run_sync
 
-        // Инициализация редактора CodeMirror с темой Monokai
-        const editor = CodeMirror.fromTextArea(document.getElementById("codeEditor"), {
-            mode: "python",
-            theme: "monokai",
+
+def _web_input(prompt=''):
+    """input(): ждём, пока пользователь введёт строку в терминале."""
+    prompt = str(prompt)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if can_run_sync():
+        try:
+            return run_sync(js.pyRequestInput(prompt))
+        except Exception:
+            raise KeyboardInterrupt from None
+    # Старый браузер без JSPI — обычное окно prompt()
+    value = js.prompt(prompt or 'Ввод:')
+    if value is None:
+        raise KeyboardInterrupt
+    sys.stdout.write(prompt + value + '\n')
+    return value
+
+
+builtins.input = _web_input
+
+
+def _complete(code, line, column):
+    """Подсказки как в редакторах кода: [(имя, тип, длина уже набранной части), ...]"""
+    import jedi
+    try:
+        items = jedi.Script(code, path='main.py').complete(line, column)
+    except Exception:
+        return []
+    return [(c.name, c.type, len(c.name) - len(c.complete or '')) for c in items[:100]]
+    </script>
+
+    <script>
+        let pyodide = null;
+        let completeFn = null;   // Python-функция _complete (после загрузки Jedi)
+        let running = false;
+        let pendingInput = null; // { resolve, reject } — пока программа ждёт input()
+
+        const runBtn = document.getElementById('runBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusLine = document.getElementById('statusLine');
+        const terminal = document.getElementById('terminal');
+
+        const CODE_KEY = 'pycomp_code';
+
+        // ===== РЕДАКТОР =====
+        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+            mode: 'python',
+            theme: 'monokai',
             lineNumbers: true,
+            indentUnit: 4,
+            tabSize: 4,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            styleActiveLine: true,
             extraKeys: {
-                "Ctrl-Space": "autocomplete",
-                "Ctrl-Enter": function() { runPython(); }
+                'Ctrl-Space': 'autocomplete',
+                'Ctrl-Enter': () => runCode(),
+                'Cmd-Enter': () => runCode(),
+                'Ctrl-/': 'toggleComment',
+                'Cmd-/': 'toggleComment',
+                // Tab — 4 пробела (или сдвиг выделенных строк), как в VS Code
+                'Tab': (cm) => cm.somethingSelected()
+                    ? cm.indentSelection('add')
+                    : cm.replaceSelection(' '.repeat(cm.getOption('indentUnit'))),
+                'Shift-Tab': (cm) => cm.indentSelection('subtract')
             }
         });
 
-        // Загрузка ядра Python
-        async function loadPyodideEngine() {
-            const outputEl = document.getElementById("output");
-            try {
-                pyodide = await loadPyodide();
-                pyodideReady = true;
-                outputEl.style.color = "#a6e22e";
-                outputEl.textContent = "Python готов к работе! Нажми «Запустить».";
-            } catch (err) {
-                outputEl.style.color = "#f92672";
-                outputEl.textContent = "Ошибка загрузки Python: " + err;
-            }
+        // Код сохраняется в браузере, чтобы не пропадал при перезагрузке
+        try {
+            const saved = localStorage.getItem(CODE_KEY);
+            if (saved !== null) editor.setValue(saved);
+        } catch { /* приватный режим */ }
+
+        let saveTimer;
+        editor.on('change', () => {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                try { localStorage.setItem(CODE_KEY, editor.getValue()); } catch { }
+            }, 400);
+        });
+
+        // ===== ПОДСКАЗКИ =====
+        const KEYWORDS = ['False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
+            'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from',
+            'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise',
+            'return', 'try', 'while', 'with', 'yield'];
+        const BUILTINS = ['print', 'input', 'int', 'float', 'str', 'bool', 'list', 'dict', 'set', 'tuple',
+            'len', 'range', 'enumerate', 'zip', 'map', 'filter', 'sorted', 'reversed', 'sum', 'min', 'max',
+            'abs', 'round', 'pow', 'divmod', 'type', 'isinstance', 'open', 'chr', 'ord', 'any', 'all'];
+
+        const KIND_ICONS = { function: 'ƒ', class: 'C', module: 'M', keyword: 'K', instance: 'v', statement: 'v', param: 'p', property: 'p' };
+
+        function hintItem(name, type, from, to) {
+            const group = ['function', 'class', 'module', 'keyword'].includes(type) ? type : 'other';
+            return {
+                text: name,
+                from, to,
+                className: 'hint-' + group,
+                render(el) {
+                    const kind = document.createElement('span');
+                    kind.className = 'hint-kind';
+                    kind.textContent = KIND_ICONS[type] || '•';
+                    const label = document.createElement('span');
+                    label.textContent = name;
+                    const typeEl = document.createElement('span');
+                    typeEl.className = 'hint-type';
+                    typeEl.textContent = type || '';
+                    el.append(kind, label, typeEl);
+                }
+            };
         }
-        loadPyodideEngine();
 
-        // Функция запуска кода
-        async function runPython() {
-            const outputEl = document.getElementById("output");
-            if (!pyodideReady) {
-                outputEl.style.color = "#888888";
-                outputEl.textContent = "Загрузка Python еще не завершена...";
-                return;
+        // Jedi думает ~0.2 с, поэтому ждём короткую паузу в наборе, а не считаем на каждую букву
+        let hintTimer;
+        function pythonHint(cm, callback) {
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(() => computeHints(cm, callback), completeFn ? 120 : 0);
+        }
+
+        function computeHints(cm, callback) {
+            const cur = cm.getCursor();
+            let list = [];
+
+            if (completeFn) {
+                // Jedi: знает методы строк, списков, модулей и твои переменные
+                const result = completeFn(cm.getValue(), cur.line + 1, cur.ch);
+                const items = result.toJs();
+                result.destroy();
+                list = items.map(([name, type, typed]) =>
+                    hintItem(name, type, CodeMirror.Pos(cur.line, cur.ch - typed), cur));
+            } else {
+                // Пока Jedi грузится — ключевые слова и встроенные функции
+                const line = cm.getLine(cur.line).slice(0, cur.ch);
+                const prefix = (line.match(/[A-Za-z_]\w*$/) || [''])[0];
+                if (!prefix) return callback(null);
+                const from = CodeMirror.Pos(cur.line, cur.ch - prefix.length);
+                list = [...KEYWORDS.map(k => [k, 'keyword']), ...BUILTINS.map(b => [b, 'function'])]
+                    .filter(([w]) => w.startsWith(prefix) && w !== prefix)
+                    .map(([w, t]) => hintItem(w, t, from, cur));
             }
 
-            outputEl.style.color = "#a6e22e";
-            outputEl.textContent = "Выполняется...\n";
-            
-            pyodide.setStdout({
-                batched: (text) => { outputEl.textContent += text; }
+            callback(list.length ? { list, from: list[0].from, to: cur } : null);
+        }
+        pythonHint.async = true;
+
+        editor.setOption('hintOptions', { hint: pythonHint, completeSingle: false });
+
+        // Подсказки появляются сами при наборе, как в VS Code
+        editor.on('inputRead', (cm, change) => {
+            if (change.origin !== '+input' || cm.state.completionActive) return;
+            const typed = change.text[change.text.length - 1];
+            if (!/[\w.]$/.test(typed)) return;
+            const token = cm.getTokenAt(cm.getCursor());
+            if (/comment|string/.test(token.type || '')) return;
+            cm.showHint();
+        });
+
+        // ===== ТЕРМИНАЛ =====
+        function termWrite(text, className) {
+            if (!text) return;
+            const last = terminal.lastElementChild;
+            if (last && last.tagName === 'SPAN' && last.className === (className || '')) {
+                last.textContent += text;   // склеиваем подряд идущий вывод
+            } else {
+                const span = document.createElement('span');
+                if (className) span.className = className;
+                span.textContent = text;
+                terminal.appendChild(span);
+            }
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function termClear() {
+            terminal.innerHTML = '';
+        }
+
+        const outDecoder = new TextDecoder();
+        const errDecoder = new TextDecoder();
+
+        // Вызывается из Python, когда программа просит input()
+        window.pyRequestInput = (prompt) => new Promise((resolve, reject) => {
+            termWrite(prompt);
+            const field = document.createElement('input');
+            field.className = 'term-input';
+            field.autocomplete = 'off';
+            field.spellcheck = false;
+            terminal.appendChild(field);
+            field.focus();
+            terminal.scrollTop = terminal.scrollHeight;
+            statusLine.textContent = '⌨ Программа ждёт ввода — напиши ответ в терминале и нажми Enter';
+
+            const finish = () => {
+                field.remove();
+                pendingInput = null;
+                statusLine.textContent = '⏳ Программа выполняется...';
+            };
+
+            field.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter') return;
+                const value = field.value;
+                finish();
+                termWrite(value, 'term-input-text');
+                termWrite('\n');
+                resolve(value);
             });
 
-            try {
-                const code = editor.getValue();
-                await pyodide.runPythonAsync(code);
-} catch (err) {
-    // Экранируем < и >, чтобы HTML-теги в ошибке не сломали разметку
-    const safeErr = String(err).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-     outputEl.insertAdjacentHTML('beforeend', 
-        '\n<span style="color: #f92672;">Ошибка:\n' + safeErr + '</span>'
-    );
-        }
+            pendingInput = { reject: (reason) => { finish(); reject(reason); } };
+        });
+
+        // Клик по терминалу — фокус в поле ввода, если оно есть
+        terminal.addEventListener('click', () => {
+            terminal.querySelector('.term-input')?.focus();
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            if (!pendingInput) termClear();
+        });
+
+        // Из ошибки Pyodide оставляем только то, что относится к коду пользователя
+        function cleanTraceback(message) {
+            const lines = String(message).split('\n');
+            const start = lines.findIndex(l => l.includes('File "main.py"'));
+            if (start === -1) return lines.filter(l => l.trim()).slice(-3).join('\n');
+            return ['Traceback (most recent call last):', ...lines.slice(start)].join('\n').trimEnd();
         }
 
-        document.getElementById("runBtn").addEventListener("click", runPython);
+        // ===== ЗАПУСК =====
+        async function runCode() {
+            if (!pyodide || running) return;
+            running = true;
+            runBtn.disabled = true;
+            stopBtn.disabled = false;
+            termClear();
+            statusLine.textContent = '⏳ Программа выполняется...';
+
+            const code = editor.getValue();
+            // Каждый запуск — «чистый лист», переменные прошлого запуска не мешают
+            const globals = pyodide.globals.get('dict')();
+            globals.set('__name__', '__main__');
+
+            try {
+                // Если в коде есть import numpy и т.п. — подгружаем библиотеку
+                await pyodide.loadPackagesFromImports(code, {
+                    messageCallback: () => { statusLine.textContent = '📦 Загрузка библиотек...'; }
+                });
+                statusLine.textContent = '⏳ Программа выполняется...';
+                await pyodide.runPythonAsync(code, { globals, filename: 'main.py' });
+                pyodide.runPython('import sys; sys.stdout.flush(); sys.stderr.flush()');
+                termWrite('\n[Программа завершена]', 'term-muted');
+            } catch (err) {
+                pyodide.runPython('import sys; sys.stdout.flush(); sys.stderr.flush()');
+                if (String(err.message).includes('KeyboardInterrupt')) {
+                    termWrite('\n[Программа остановлена]', 'term-muted');
+                } else {
+                    termWrite('\n' + cleanTraceback(err.message), 'term-error');
+                }
+            } finally {
+                globals.destroy();
+                running = false;
+                runBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusLine.textContent = readyText();
+            }
+        }
+
+        stopBtn.addEventListener('click', () => {
+            if (pendingInput) pendingInput.reject(new Error('stop'));
+        });
+
+        runBtn.addEventListener('click', runCode);
+
+        function readyText() {
+            return completeFn
+                ? '✅ Python 3.13 готов. Подсказки: при наборе или Ctrl+Space'
+                : '✅ Python 3.13 готов. Умные подсказки загружаются...';
+        }
+
+        // ===== ЗАГРУЗКА PYTHON =====
+        async function init() {
+            try {
+                pyodide = await loadPyodide();
+                pyodide.setStdout({ write: (buf) => { termWrite(outDecoder.decode(buf, { stream: true })); return buf.length; } });
+                pyodide.setStderr({ write: (buf) => { termWrite(errDecoder.decode(buf, { stream: true }), 'term-error'); return buf.length; } });
+                pyodide.runPython(document.getElementById('pyBootstrap').textContent);
+
+                runBtn.disabled = false;
+                statusLine.textContent = readyText();
+
+                // Jedi (умные подсказки) грузим в фоне, чтобы не задерживать запуск
+                await pyodide.loadPackage('jedi', { messageCallback: () => { } });
+                const fn = pyodide.globals.get('_complete');
+                fn('pri', 1, 3).destroy();   // «прогрев»: первый вызов Jedi самый медленный
+                completeFn = fn;
+                if (!running) statusLine.textContent = readyText();
+            } catch (err) {
+                statusLine.textContent = '❌ Ошибка загрузки Python: ' + err;
+                console.error(err);
+            }
+        }
+        init();
     </script>
 </body>
 </html>

@@ -2,7 +2,6 @@ const toast = document.getElementById('toast');
 const compilerModal = document.getElementById('compilerModal');
 const openCompilerBtn = document.getElementById('openCompilerBtn');
 const closeModalBtn = document.getElementById('closeModalBtn');
-const htmlCompBtn = document.getElementById('htmlCompBtn');
 const soonCard = document.getElementById('soonCard');
 
 let toastTimeout;
@@ -37,13 +36,6 @@ compilerModal.addEventListener('click', (e) => {
     }
 });
 
-// Клик по неактивному HTML-компилятору
-htmlCompBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    compilerModal.classList.remove('active');
-    showToast("Компилятор html пока что недоступен");
-});
-
 // Клик по карточке "soon"
 if (soonCard) {
     soonCard.addEventListener('click', () => {
@@ -56,24 +48,31 @@ if (soonCard) {
     const curtain = document.getElementById('introCurtain');
     if (!curtain) return;
 
+    // Кто отключил анимации в системе — сразу показываем сайт
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        curtain.remove();
+        return;
+    }
+
     // Блокируем прокрутку на время анимации
     document.body.classList.add('intro-locked');
 
-    // Мгновение тёмной паузы, затем из центра расцветает свечение
+    // Искра в центре успевает загореться, затем расходится волна и «подлетает» сайт
     setTimeout(() => {
         curtain.classList.add('active');
-    }, 500);
+        document.body.classList.add('intro-playing');
+    }, 650);
 
-    // Свечение дошло до краёв — плавно убираем шторку
-    setTimeout(() => {
-        curtain.classList.add('done');
-        document.body.classList.remove('intro-locked');
-    }, 700);
-
-    // Полностью удаляем элемент из DOM
+    // Волна дошла до краёв — убираем шторку
     setTimeout(() => {
         curtain.remove();
-    }, 1000);
+        document.body.classList.remove('intro-locked');
+    }, 1650);
+
+    // Анимация блоков закончилась
+    setTimeout(() => {
+        document.body.classList.remove('intro-playing');
+    }, 1900);
 })();
 
 // Все карточки с классом "not-ready" показывают toast вместо перехода
