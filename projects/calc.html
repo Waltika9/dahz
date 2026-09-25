@@ -59,24 +59,24 @@
             background: #fffde7;
         }
 
-        /* ===== Номер строки слева от поля ===== */
-        .row-number {
-            flex-shrink: 0;
-            width: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
-            color: #0f172a;
-            user-select: none;
-            pointer-events: none;
-        }
+/* ===== Номер строки слева от поля ===== */
+.row-number {
+    flex-shrink: 0;
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #0f172a;
+    user-select: none;
+    pointer-events: none;
+}
 
-        /* Первая строка — номер скрыт, но занимает место (для выравнивания полей) */
-        .row-number.is-hidden {
-            visibility: hidden;
-        }
+/* Первая строка — номер скрыт, но занимает место (для выравнивания полей) */
+.row-number.is-hidden {
+    visibility: hidden;
+}
 
         /* ===== Кнопка-корзина справа от строки ===== */
         .trash-btn {
@@ -108,9 +108,9 @@
         }
 
         .trash-btn:hover img {
-            transform: rotate(-10deg);
-            transition: transform 0.2s ease;
-        }
+    transform: rotate(-10deg);
+    transition: transform 0.2s ease;
+}
 
         .trash-btn:active {
             transform: translate(1px, 1px);
@@ -218,17 +218,17 @@
         }
 
         /* ===== Модалка "Примеры" ===== */
-        .examples-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            text-align: left;
-            margin: 15px 0;
-            max-height: 60vh;
-            overflow-y: auto;
-            padding: 6px 8px 6px 8px;
-        }
-
+.examples-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+    margin: 15px 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 6px 8px 6px 8px;  /* ← место для теней */
+}
+        
         .example-item {
             border: 2px solid #000;
             background: #f8fafc;
@@ -274,6 +274,7 @@
             
             <p style="margin-bottom: 12px; font-weight: 600;">Введите уравнения или неравенства:</p>
             
+            <!-- Контейнер для строк ввода. Первая строка без корзины. -->
             <div class="input-group" id="inputsContainer">
                 <div class="input-row">
                     <input type="text" class="system-input" value="x + y = 5" placeholder="Уравнение 1">
@@ -283,13 +284,14 @@
                 </div>
             </div>
 
+            <!-- Кнопка добавления строки -->
             <button id="addRowBtn" class="add-row-btn" type="button">+ Добавить строку</button>
 
-            <div class="controls-row">
-                <button id="clearBtn" class="btn btn-small">🧹 Очистить</button>
-                <button id="examplesBtn" class="btn btn-small">📚 Примеры</button>
-                <button id="helpBtn" class="btn btn-small">❓ Подсказка</button>
-            </div>
+<div class="controls-row">
+    <button id="clearBtn" class="btn btn-small">🧹 Очистить</button>
+    <button id="examplesBtn" class="btn btn-small">📚 Примеры</button>
+    <button id="helpBtn" class="btn btn-small">❓ Подсказка</button>
+</div>
 
             <button id="solveBtn" class="btn solve-btn" disabled>Загрузка движка...</button>
         </div>
@@ -322,12 +324,6 @@
                     <strong>Неравенства:</strong><br>
                     Используйте <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code><br>
                     Пример: <code>2*x + 5 &gt; 10</code>
-                </div>
-                <div class="help-item">
-                    <strong>Корни:</strong><br>
-                    <code>x^(1/2)</code> — квадратный<br>
-                    <code>x^(1/3)</code> — кубический<br>
-                    <code>sqrt(x)</code> — тоже работает
                 </div>
                 <div class="help-item">
                     <strong>Системы:</strong><br>
@@ -396,17 +392,18 @@
         const toast = document.getElementById('toast');
         let toastTimeout;
 
-        function showToast(message, type = 'error') {
-            clearTimeout(toastTimeout);
-            toast.textContent = message;
-            toast.className = 'toast show ' + type;
-            toastTimeout = setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
+function showToast(message, type = 'error') {
+    clearTimeout(toastTimeout);
+    toast.textContent = message;
+    toast.className = 'toast show ' + type;
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
 
         // ===== УПРАВЛЕНИЕ СТРОКАМИ =====
 
+        // Создаёт кнопку с корзиной для строки
         function createTrashBtn() {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -416,6 +413,7 @@
             const img = document.createElement('img');
             img.src = '../images/trashbin.png';
             img.alt = '';
+            // Если картинки нет — покажем emoji-фолбэк
             img.onerror = function () {
                 this.parentNode.textContent = '🗑';
             };
@@ -426,27 +424,29 @@
         }
 
         function refreshTrashBtns() {
-            const rows = Array.from(inputsContainer.querySelectorAll('.input-row'));
-            rows.forEach((row, index) => {
-                // === Номер строки ===
-                let numEl = row.querySelector('.row-number');
-                if (!numEl) {
-                    numEl = document.createElement('span');
-                    numEl.className = 'row-number';
-                    row.insertBefore(numEl, row.firstChild);
-                }
-                numEl.textContent = index + 1;
-
-                // === Корзина ===
-                const existing = row.querySelector('.trash-btn');
-                if (index === 0) {
-                    if (existing) existing.remove();
-                } else if (!existing) {
-                    row.appendChild(createTrashBtn());
-                }
-            });
+    const rows = Array.from(inputsContainer.querySelectorAll('.input-row'));
+    rows.forEach((row, index) => {
+        // === Номер строки ===
+        let numEl = row.querySelector('.row-number');
+        if (!numEl) {
+            numEl = document.createElement('span');
+            numEl.className = 'row-number';
+            row.insertBefore(numEl, row.firstChild);
         }
+        numEl.textContent = index + 1;
+        // Первая строка — номер скрыт (но занимает место, чтобы поля не съезжали)
 
+        // === Корзина ===
+        const existing = row.querySelector('.trash-btn');
+        if (index === 0) {
+            if (existing) existing.remove();
+        } else if (!existing) {
+            row.appendChild(createTrashBtn());
+        }
+    });
+}
+
+        // Добавляет новую строку
         function addRow(value = '') {
             const row = document.createElement('div');
             row.className = 'input-row';
@@ -462,6 +462,7 @@
             refreshTrashBtns();
         }
 
+        // Удаляет строку
         function removeRow(row) {
             if (!row) return;
             if (inputsContainer.querySelectorAll('.input-row').length <= 1) {
@@ -472,6 +473,7 @@
             refreshTrashBtns();
         }
 
+        // Запрос на удаление с подтверждением (если в строке > 5 символов)
         let pendingRow = null;
 
         function requestDeleteRow(row) {
@@ -489,6 +491,7 @@
             }
         }
 
+        // Модалка подтверждения
         confirmYesBtn.addEventListener('click', () => {
             if (pendingRow) {
                 removeRow(pendingRow);
@@ -514,8 +517,10 @@
             }
         });
 
+        // При загрузке страницы навешиваем корзины на существующие строки
         refreshTrashBtns();
 
+        // Кнопка "Добавить строку"
         addRowBtn.addEventListener('click', () => addRow());
 
         // ===== МОДАЛЬНОЕ ОКНО ПОДСКАЗОК =====
@@ -560,7 +565,7 @@
                 title: 'Двойное неравенство',
                 code: ['1 < x + 2', 'x + 2 < 5']
             },
-            {
+                {
                 title: 'Неравенство со скобками',
                 code: ['4(2x - 3) >= 5(x + 1)']
             },
@@ -571,14 +576,6 @@
             {
                 title: 'Составное неравенство',
                 code: ['3(2x - 5) - 2(x + 1) <= 5(x - 4) + 7']
-            },
-            {
-                title: 'Уравнение с корнем',
-                code: ['x^(1/2) + 3 = 7']
-            },
-            {
-                title: 'Кубический корень',
-                code: ['x^(1/3) = 2']
             }
         ];
 
@@ -607,6 +604,7 @@
         }
 
         function loadExample(codeArray) {
+            // Полностью пересобираем строки под пример
             inputsContainer.innerHTML = '';
             codeArray.forEach(line => {
                 const row = document.createElement('div');
@@ -706,45 +704,12 @@ try:
     if not all_syms:
         res = {"success": False, "error": "Не найдено переменных в выражении"}
     else:
-        # Проверяем: есть ли среди введённых выражений неравенство?
-        is_inequality = lambda it: isinstance(it, (
-            sp.GreaterThan, sp.LessThan,
-            sp.StrictGreaterThan, sp.StrictLessThan
-        ))
-        has_inequality = any(is_inequality(it) for it in parsed_items)
-
-        if has_inequality and len(parsed_items) == 1:
-            # Одиночное неравенство — solveset даёт интервал вида (−∞, 16)
-            solution_set = sp.solveset(parsed_items[0], all_syms[0], domain=sp.S.Reals)
-            res = {
-                "success": True,
-                "items_latex": eq_strings,
-                "solutions_latex": sp.latex(solution_set)
-            }
-        elif has_inequality:
-            # Система неравенств — объединяем через And
-            combined = sp.And(*parsed_items)
-            solution = sp.reduce_inequalities(combined, all_syms)
-            res = {
-                "success": True,
-                "items_latex": eq_strings,
-                "solutions_latex": sp.latex(solution)
-            }
-        else:
-            # Уравнение или система уравнений — обычный solve
-            solutions = sp.solve(parsed_items, all_syms, dict=True)
-            if not solutions:
-                solutions_latex = "Нет\\ решений"
-            elif len(solutions) == 1 and isinstance(solutions[0], dict):
-                pairs = [f"{sp.latex(k)} = {sp.latex(v)}" for k, v in solutions[0].items()]
-                solutions_latex = ", \\quad ".join(pairs)
-            else:
-                solutions_latex = sp.latex(solutions)
-            res = {
-                "success": True,
-                "items_latex": eq_strings,
-                "solutions_latex": solutions_latex
-            }
+        solutions = sp.solve(parsed_items, all_syms, dict=True)
+        res = {
+            "success": True,
+            "items_latex": [sp.latex(item) for item in parsed_items],
+            "solutions_latex": sp.latex(solutions) if solutions else "Нет\\\\ решений"
+        }
 except Exception as e:
     res = {"success": False, "error": str(e)}
 
