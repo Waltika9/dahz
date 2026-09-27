@@ -720,6 +720,9 @@ inviteInfoBtn.addEventListener('click', (e) => {
         hideInfoTip();
         return;
     }
+    // Стрелка подсказки — под серединой значка i
+    const arrowX = inviteInfoBtn.offsetLeft + inviteInfoBtn.offsetWidth / 2 - 7;
+    inviteInfoTip.style.setProperty('--arrow-x', `${arrowX}px`);
     inviteInfoTip.classList.add('show');
     tipTimeout = setTimeout(hideInfoTip, 5000);
 });

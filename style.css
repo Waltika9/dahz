@@ -163,7 +163,7 @@ header {
     box-shadow: 4px 4px 0px #000;
     font-weight: 600;
     transition: bottom 0.3s ease;
-    z-index: 1000;
+    z-index: 2000;   /* выше модальных окон (у них 1000), иначе уведомление прячется за размытым фоном */
 }
 
 .toast.show {
@@ -523,6 +523,7 @@ body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
 .modal-window form.login-form {
     max-height: 70vh;
     overflow-y: auto;
+    overflow-x: hidden;   /* поле при фокусе чуть сдвигается — без этого появляется горизонтальная прокрутка */
     padding: 2px 6px 6px 2px;   /* место для теней полей */
 }
 
@@ -606,12 +607,13 @@ body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
 
 /* Подпись + значок i в одной строке */
 .label-row {
+    position: relative;   /* подсказка растягивается на всю ширину этой строки */
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.info-wrap { position: relative; display: inline-flex; }
+.info-wrap { display: inline-flex; }
 
 .info-btn {
     width: 22px;
@@ -646,9 +648,8 @@ body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
 .info-tip {
     position: absolute;
     top: calc(100% + 10px);
-    left: -12px;
-    width: 250px;
-    max-width: 70vw;
+    left: 0;
+    right: 4px;   /* во всю ширину формы, с запасом под тень — не обрезается краем */
     padding: 8px 10px;
     background: var(--card-bg);
     border: 2px solid var(--border-color);
@@ -668,7 +669,7 @@ body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
     content: '';
     position: absolute;
     top: -8px;
-    left: 16px;
+    left: var(--arrow-x, 16px);   /* стрелка — точно под значком i (считается в firebase.js) */
     width: 12px;
     height: 12px;
     background: var(--card-bg);
