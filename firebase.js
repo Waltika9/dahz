@@ -12,7 +12,7 @@ import {
     deleteUser, signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
-    getFirestore, collection, doc, onSnapshot, setDoc, getDoc, deleteDoc,
+    getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc,
     writeBatch, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import * as gh from './github.js?v=5';
@@ -39,6 +39,14 @@ const STATUSES = {
     dev:         { icon: '🛠', label: 'В разработке',        message: 'Проект находится в разработке' },
     unavailable: { icon: '⛔', label: 'Временно недоступен', message: 'Проект временно недоступен' },
     updating:    { icon: '🔄', label: 'Обновляется',         message: 'Проект обновляется, скоро он снова станет доступным' }
+};
+
+// Права, которые владелец может выдать пользователям (окно «👥 Пользователи»).
+// Хранятся в members/{uid}.perms, менять их может только владелец — это проверяют правила Firestore.
+const PERMS = {
+    status:     '🔄 Менять статус',
+    visibility: '👁 Скрывать и показывать',
+    create:     '➕ Создавать проекты'
 };
 
 const PROJECT_DEFAULTS = {
@@ -74,6 +82,9 @@ const projectCards = $('projectCards');
 const accountBar = $('accountBar');
 const createProjectBtn = $('createProjectBtn');
 const tokenBtn = $('tokenBtn');
+const usersBtn = $('usersBtn');
+const usersModal = $('usersModal');
+const usersList = $('usersList');
 
 const loginBtn = $('loginBtn');
 const loginModal = $('loginModal');
@@ -119,8 +130,9 @@ let approvedDocs = {};   // одобренные проекты (видят вс
 let extraDocs = {};      // владелец — все проекты; пользователь — свои заявки
 let currentUser = null;
 let isAdmin = false;
-let member = null;       // данные из members/{uid}: { nickname, ... }
+let member = null;       // данные из members/{uid}: { nickname, perms, ... }
 let unsubExtra = null;
+let unsubMember = null;
 let seeding = false;
 
 // ===== ПОМОЩНИКИ =====
@@ -146,6 +158,11 @@ function linkTag(link) {
 
 function isOwner(p) {
     return !!currentUser && p.ownerUid === currentUser.uid;
+}
+
+// Есть ли у текущего пользователя право (у владельца есть все)
+function can(perm) {
+    return isAdmin || member?.perms?.[perm] === true;
 }
 
 // Все проекты: встроенные + из базы, отсортированные по order
@@ -193,7 +210,7 @@ function render() {
     allProjects().forEach(p => {
         const canSeePending = isAdmin || isOwner(p);
         if (!p.approved && !canSeePending) return;      // заявка — только автору и владельцу
-        if (p.approved && !p.visible && !isAdmin) return; // скрытый — только владельцу
+        if (p.approved && !p.visible && !can('visibility')) return; // скрытый — владельцу и тем, кто может показать
         projectCards.appendChild(buildCard(p));
     });
 
@@ -261,7 +278,8 @@ function buildCard(p) {
     // Панель управления
     let panel = null;
     if (isAdmin) panel = adminPanel(p);
-    else if (isOwner(p) && !p.approved) panel = ownerPanel(p);
+    else if (!p.approved) panel = isOwner(p) ? ownerPanel(p) : null;
+    else if (can('status') || can('visibility')) panel = helperPanel(p);
     if (panel) {
         // Карточка — это ссылка, поэтому клик по панели не должен открывать проект
         panel.addEventListener('click', (e) => {
@@ -346,6 +364,25 @@ function adminPanel(p) {
     return panel;
 }
 
+// Панель помощника: только те кнопки, на которые есть права
+function helperPanel(p) {
+    const panel = document.createElement('div');
+    panel.className = 'admin-panel';
+
+    if (can('visibility')) {
+        panel.appendChild(button(p.visible ? '👁 Скрыть' : '🙈 Показать', 'admin-btn',
+            () => saveFields(p.id, { visible: !p.visible })));
+    }
+    if (can('status')) {
+        Object.entries(STATUSES).forEach(([key, s]) => {
+            const btn = button(`${s.icon} ${s.label}`, 'admin-btn', () => saveFields(p.id, { status: key }));
+            btn.classList.toggle('active', key === p.status);
+            panel.appendChild(btn);
+        });
+    }
+    return panel;
+}
+
 function ownerPanel(p) {
     const panel = document.createElement('div');
     panel.className = 'admin-panel';
@@ -362,11 +399,14 @@ function renderAccountBar() {
     const show = isAdmin || !!member;
     accountBar.hidden = !show;
     tokenBtn.hidden = !isAdmin;
+    usersBtn.hidden = !isAdmin;
     if (!show) return;
 
     if (isAdmin) {
         createProjectBtn.textContent = '➕ Создать проект';
         tokenBtn.textContent = gh.getToken() ? '🔑 Токен GitHub ✓' : '🔑 Токен GitHub';
+    } else if (can('create')) {
+        createProjectBtn.textContent = '➕ Создать проект';
     } else {
         createProjectBtn.textContent = `➕ Предложить проект (${pendingRequests().length}/${MAX_REQUESTS})`;
     }
@@ -417,8 +457,8 @@ function openProjectModal(mode, project = null) {
     projectModal.classList.toggle('member-form', !isAdmin);
 
     projectModalTitle.textContent =
-        mode === 'edit' ? 'Изменить проект' : (isAdmin ? 'Новый проект' : 'Заявка на проект');
-    projectSubmit.textContent = mode === 'edit' ? 'Сохранить' : (isAdmin ? 'Создать' : 'Отправить заявку');
+        mode === 'edit' ? 'Изменить проект' : (mode === 'create' ? 'Новый проект' : 'Заявка на проект');
+    projectSubmit.textContent = mode === 'edit' ? 'Сохранить' : (mode === 'create' ? 'Создать' : 'Отправить заявку');
 
     projTitle.value = project?.title || '';
     projLink.value = project?.link || (isAdmin && mode === 'create' ? 'projects/' : '');
@@ -447,6 +487,7 @@ createProjectBtn.addEventListener('click', () => {
         showToast('У аккаунта нет никнейма — обратитесь к Waltika');
         return;
     }
+    if (can('create')) return openProjectModal('create');   // право «Создавать» — без заявки
     if (pendingRequests().length >= MAX_REQUESTS) {
         showToast(`Уже ${MAX_REQUESTS} заявки ждут одобрения. Дождитесь проверки`, 'warning');
         return;
@@ -482,6 +523,21 @@ projectForm.addEventListener('submit', async (e) => {
     const submitText = projectSubmit.textContent;
     projectSubmit.textContent = 'Сохраняем...';
     try {
+        // Пользователь с правом «Создавать проекты»: сразу виден всем, без картинки и файлов на GitHub
+        if (!isAdmin && mode === 'create') {
+            await setDoc(doc(projectsCol), {
+                title, link, tag: '', image: '',
+                author: member.nickname,
+                ownerUid: currentUser.uid,
+                approved: true, eternal: false, visible: true, status: 'ok',
+                order: Date.now(),
+                createdAt: serverTimestamp()
+            });
+            closeProjectModal();
+            showToast('Проект создан и уже виден всем!', 'success');
+            return;
+        }
+
         // Заявка пользователя: только название и ссылка, в свободный «слот»
         if (!isAdmin) {
             const used = new Set(pendingRequests().map(([id]) => id));
@@ -589,6 +645,79 @@ tokenModal.addEventListener('click', (e) => {
     if (e.target === tokenModal) tokenModal.classList.remove('active');
 });
 
+// ===== ПОЛЬЗОВАТЕЛИ И ПРАВА (только владелец) =====
+let unsubMembers = null;
+
+function renderUsers(snap) {
+    usersList.innerHTML = '';
+    const users = [];
+    snap.forEach(d => users.push({ id: d.id, ...d.data() }));
+    users.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || '', 'ru'));
+
+    if (users.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'form-hint';
+        empty.textContent = 'Пока никто не зарегистрировался.';
+        usersList.appendChild(empty);
+        return;
+    }
+
+    users.forEach(u => {
+        const row = document.createElement('div');
+        row.className = 'user-row';
+
+        const name = document.createElement('div');
+        name.className = 'user-name';
+        name.textContent = u.nickname || '(без никнейма)';
+        const meta = document.createElement('div');
+        meta.className = 'user-meta';
+        meta.textContent = `${u.email || ''} · код: ${u.code || '—'}`;
+
+        const perms = document.createElement('div');
+        perms.className = 'user-perms';
+        Object.entries(PERMS).forEach(([key, label]) => {
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.checked = u.perms?.[key] === true;
+            box.addEventListener('change', () => {
+                // Всегда записываем все три права целиком — так проще проверять в правилах
+                const next = {};
+                for (const k of Object.keys(PERMS)) next[k] = u.perms?.[k] === true;
+                next[key] = box.checked;
+                run(() => setDoc(doc(db, 'members', u.id), { perms: next }, { merge: true }),
+                    `${u.nickname}: права обновлены`);
+            });
+            const lbl = document.createElement('label');
+            lbl.className = 'check-row';
+            lbl.append(box, label);
+            perms.appendChild(lbl);
+        });
+
+        row.append(name, meta, perms);
+        usersList.appendChild(row);
+    });
+}
+
+usersBtn.addEventListener('click', () => {
+    usersModal.classList.add('active');
+    unsubMembers?.();
+    unsubMembers = onSnapshot(collection(db, 'members'), renderUsers, (err) => {
+        console.error(err);
+        usersList.textContent = 'Не удалось загрузить пользователей — проверь правила Firestore.';
+    });
+});
+
+function closeUsers() {
+    usersModal.classList.remove('active');
+    unsubMembers?.();
+    unsubMembers = null;
+}
+
+$('closeUsersBtn').addEventListener('click', closeUsers);
+usersModal.addEventListener('click', (e) => {
+    if (e.target === usersModal) closeUsers();
+});
+
 // ===== ОКНО ПОДТВЕРЖДЕНИЯ =====
 let confirmAction = null;
 
@@ -642,15 +771,20 @@ render();
 setTimeout(reveal, 3000);  // на случай медленного интернета
 
 // ===== ВХОД / ВЫХОД =====
-async function loadMember() {
+// Данные пользователя (ник и права) слушаем постоянно:
+// выдал владелец право — кнопки появляются сразу, без перезахода
+function watchMember() {
+    unsubMember?.();
+    unsubMember = null;
     member = null;
     if (!currentUser || isAdmin) return;
-    try {
-        const snap = await getDoc(doc(db, 'members', currentUser.uid));
+    unsubMember = onSnapshot(doc(db, 'members', currentUser.uid), (snap) => {
         member = snap.exists() ? snap.data() : null;
-    } catch {
+        render();
+    }, () => {
         member = null;
-    }
+        render();
+    });
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -675,7 +809,8 @@ onAuthStateChanged(auth, async (user) => {
         }, (err) => console.warn(err));
     }
 
-    await loadMember();
+    if (!isAdmin) closeUsers();
+    watchMember();
     render();
 });
 
@@ -752,6 +887,7 @@ document.addEventListener('keydown', (e) => {
     if (loginModal.classList.contains('active')) closeLogin();
     if (projectModal.classList.contains('active')) closeProjectModal();
     if (confirmModal.classList.contains('active')) closeConfirm();
+    if (usersModal.classList.contains('active')) closeUsers();
     tokenModal.classList.remove('active');
 });
 
@@ -816,8 +952,7 @@ registerForm.addEventListener('submit', async (e) => {
             code,
             createdAt: serverTimestamp()
         });
-        await loadMember();   // onAuthStateChanged сработал раньше, чем появилась запись
-        render();
+        // Ник подтянется сам: watchMember следит за members/{uid}
         closeLogin();
         showToast('Аккаунт создан!', 'success');
     } catch (err) {

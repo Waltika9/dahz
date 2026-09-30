@@ -11,7 +11,7 @@
     <!-- Подключаем внешние стили -->
     <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
          иначе браузер может до 10 минут брать старую копию из кэша -->
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body class="projects-loading">
 
@@ -40,6 +40,7 @@
     <div class="account-bar" id="accountBar" hidden>
         <button class="btn" id="createProjectBtn" type="button">➕ Создать проект</button>
         <button class="btn" id="tokenBtn" type="button" hidden>🔑 Токен GitHub</button>
+        <button class="btn" id="usersBtn" type="button" hidden>👥 Пользователи</button>
     </div>
 
     <!-- Карточки проектов -->
@@ -192,6 +193,16 @@
         </div>
     </div>
 
+    <!-- Модальное окно: пользователи и их права (видит только владелец) -->
+    <div id="usersModal" class="modal-overlay">
+        <div class="modal-window modal-wide">
+            <button class="modal-close" id="closeUsersBtn" type="button">×</button>
+            <h3 class="modal-title">Пользователи</h3>
+            <p class="form-hint">Отметь, что может делать каждый пользователь. Изменения сохраняются сразу.</p>
+            <div class="users-list" id="usersList"><p class="form-hint">Загрузка...</p></div>
+        </div>
+    </div>
+
     <!-- Модальное окно: подтверждение -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-window">
@@ -208,6 +219,6 @@
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
     <script src="script.js?v=5"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
-    <script type="module" src="firebase.js?v=7"></script>
+    <script type="module" src="firebase.js?v=8"></script>
 </body>
 </html>

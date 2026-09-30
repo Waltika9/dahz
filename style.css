@@ -457,6 +457,9 @@ body.projects-loading .project-card[data-project-id] {
 
 .account-bar[hidden] { display: none; }
 
+/* .btn задаёт display: inline-block, а он перебивает атрибут hidden — возвращаем скрытие */
+.btn[hidden] { display: none; }
+
 body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
 
 .status-tag {
@@ -550,6 +553,42 @@ body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
     margin: 15px 0;
     line-height: 1.5;
 }
+
+/* ===== Окно «Пользователи» ===== */
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 2px 6px 6px 2px;   /* место для теней */
+    text-align: left;
+}
+
+.user-row {
+    border: 2px solid var(--border-color);
+    box-shadow: 3px 3px 0px var(--border-color);
+    padding: 10px 12px;
+    background: #f8fafc;
+}
+
+.user-name { font-weight: 800; }
+
+.user-meta {
+    font-size: 0.8rem;
+    color: #475569;
+    word-break: break-all;
+}
+
+.user-perms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 8px;
+}
+
+.user-perms .check-row { font-size: 0.85rem; }
 
 .modal-btn.danger { background: #fee2e2; }
 .modal-btn.danger:hover { background: #fca5a5; }
