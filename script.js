@@ -75,6 +75,55 @@ soonCard?.addEventListener('click', () => {
     showToast("Скоро появятся новые проекты");
 });
 
+// ===== Поиск проектов =====
+// Ищет по названию, автору и подписи справа. Карточки рисует firebase.js,
+// поэтому после каждой перерисовки фильтр применяется заново.
+const searchBox = document.getElementById('searchBox');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const searchEmpty = document.getElementById('searchEmpty');
+const projectCardsBox = document.getElementById('projectCards');
+
+function applySearch() {
+    const query = searchInput.value.trim().toLowerCase();
+    let found = 0;
+    projectCardsBox.querySelectorAll('.project-card').forEach(card => {
+        const text = [...card.querySelectorAll('.project-title, .project-author, .project-tag')]
+            .map(el => el.textContent).join(' ').toLowerCase();
+        const match = !query || text.includes(query);
+        card.classList.toggle('search-hidden', !match);
+        if (match) found++;
+    });
+    document.body.classList.toggle('searching', !!query);
+    searchEmpty.hidden = !query || found > 0;
+}
+
+function closeSearch() {
+    searchInput.value = '';
+    searchBox.classList.remove('open');
+    applySearch();
+}
+
+searchBtn?.addEventListener('click', () => {
+    if (!searchBox.classList.contains('open')) {
+        searchBox.classList.add('open');
+        searchInput.focus();
+    } else if (!searchInput.value) {
+        closeSearch();
+    } else {
+        searchInput.focus();
+    }
+});
+
+searchInput?.addEventListener('input', applySearch);
+searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSearch();
+});
+
+if (projectCardsBox) {
+    new MutationObserver(applySearch).observe(projectCardsBox, { childList: true });
+}
+
 // Все карточки с классом "not-ready" показывают toast вместо перехода
 document.querySelectorAll('.not-ready').forEach(card => {
     card.addEventListener('click', (e) => {

@@ -11,7 +11,7 @@
     <!-- Подключаем внешние стили -->
     <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
          иначе браузер может до 10 минут брать старую копию из кэша -->
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body class="projects-loading">
 
@@ -33,7 +33,16 @@
     <!-- Навигация -->
     <div class="sub-nav">
         <div class="section-title">Все проекты:</div>
-        <button class="btn" id="openCompilerBtn">Открыть компилятор</button>
+        <div class="nav-actions">
+            <!-- Поиск: по кнопке-лупе выезжает поле -->
+            <div class="search-box" id="searchBox">
+                <input class="search-input" id="searchInput" type="search" placeholder="Поиск проектов..." aria-label="Поиск проектов" autocomplete="off">
+                <button class="btn search-btn" id="searchBtn" type="button" aria-label="Поиск проектов">
+                    <img src="images/find.png" alt="" onerror="this.replaceWith('🔍')">
+                </button>
+            </div>
+            <button class="btn" id="openCompilerBtn">Открыть компилятор</button>
+        </div>
     </div>
 
     <!-- Панель аккаунта (появляется после входа) -->
@@ -48,6 +57,9 @@
 
         <!-- Проекты рисуются из базы (firebase.js). Основные три заданы там же в BUILTIN_PROJECTS -->
         <div id="projectCards" class="project-cards"></div>
+
+        <!-- Показывается, если поиск ничего не нашёл -->
+        <div class="search-empty" id="searchEmpty" hidden>Ничего не найдено 🤷</div>
 
         <!-- Проект 4 (Заглушка со служебным ID для клика) -->
         <div class="project-card" id="soonCard" style="cursor: pointer;">
@@ -217,8 +229,8 @@
     </div>
 
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
-    <script src="script.js?v=5"></script>
+    <script src="script.js?v=6"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
-    <script type="module" src="firebase.js?v=8"></script>
+    <script type="module" src="firebase.js?v=11"></script>
 </body>
 </html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Что видит камера?</title>
+    <link rel="icon" type="image/png" href="../../images/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vision.css?v=3">
+</head>
+<body>
+    <!-- ===== Верхняя панель ===== -->
+    <header class="topbar">
+        <a class="icon-btn ripple" href="../../index.html" aria-label="На главную">
+            <img src="../../images/back.png" alt="">
+        </a>
+        <span class="topbar-title">Что видит камера?</span>
+        <span class="topbar-chip">Бета</span>
+    </header>
+
+    <main class="page">
+        <!-- ===== Суть проекта ===== -->
+        <section class="hero">
+            <h1>Камера, которая <span class="blue">понимает</span>, что видит</h1>
+            <p class="lead">Нейросеть в реальном времени находит в кадре людей, животных и предметы, обводит их рамкой и подписывает, что это. Всё работает прямо в браузере — без установки программ.</p>
+            <div class="chips">
+                <span class="chip">🎯 80 видов объектов</span>
+                <span class="chip">⚡ В реальном времени</span>
+                <span class="chip">💻 Работает в браузере</span>
+            </div>
+        </section>
+
+        <!-- ===== Как это работает ===== -->
+        <section class="steps">
+            <div class="step">
+                <span class="step-num">1</span>
+                <b>Разрешите доступ к камере</b>
+                <p>Браузер спросит разрешение — нажмите «Разрешить».</p>
+            </div>
+            <div class="step">
+                <span class="step-num">2</span>
+                <b>Наведите камеру на предметы</b>
+                <p>Человек, кошка, чашка, телефон, книга, яблоко…</p>
+            </div>
+            <div class="step">
+                <span class="step-num">3</span>
+                <b>Смотрите на результат</b>
+                <p>Нейросеть обведёт найденное и подпишет по-русски.</p>
+            </div>
+        </section>
+
+        <!-- ===== Камера ===== -->
+        <section class="camera-card">
+            <div class="preview" id="preview">
+                <video id="video" playsinline muted></video>
+                <div class="preview-empty" id="previewEmpty">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h1.7l1.3-1.6A1 1 0 0 1 9.3 3h5.4a1 1 0 0 1 .8.4L16.8 5h1.7A2.5 2.5 0 0 1 21 7.5v10a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="12.5" r="3.6"/></svg>
+                    <span id="previewText">Камера выключена</span>
+                </div>
+                <span class="live-badge" id="liveBadge" hidden><i></i>Камера работает</span>
+            </div>
+
+            <div class="camera-controls">
+                <button class="btn tonal ripple" id="allowBtn" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 10l4.6-2.3A1 1 0 0 1 21 8.6v6.8a1 1 0 0 1-1.4.9L15 14M5 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>
+                    <span>Разрешить доступ к камере</span>
+                </button>
+
+                <div class="camera-switch" id="cameraSwitch" hidden>
+                    <span class="camera-name" id="cameraName"></span>
+                    <button class="btn outlined ripple" id="switchBtn" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16m0 4v-4h-4"/></svg>
+                        <span>Сменить камеру</span>
+                    </button>
+                </div>
+            </div>
+
+            <p class="notice error" id="cameraError" hidden></p>
+        </section>
+
+        <!-- ===== Приватность ===== -->
+        <div class="notice privacy">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            <span><b>Ваше видео остаётся у вас.</b> Трансляция обрабатывается прямо на этом устройстве и никуда не отправляется — ни на сайт, ни в интернет.</span>
+        </div>
+
+        <!-- ===== Старт ===== -->
+        <div class="start-row">
+            <button class="btn filled big ripple is-locked" id="startBtn" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+                <span>Начать сессию</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- ===== ЭКРАН СЕССИИ (на весь экран) ===== -->
+    <div class="session" id="session" hidden>
+        <div class="stage" id="stage">
+            <video id="sessionVideo" playsinline muted></video>
+            <canvas id="overlay"></canvas>
+            <div class="flash" id="flash"></div>
+        </div>
+
+        <div class="session-top">
+            <span class="session-pill">
+                <i class="rec-dot"></i>
+                <span>Распознавание</span>
+                <span class="fps" id="fps"></span>
+            </span>
+        </div>
+
+        <!-- загрузка нейросети -->
+        <div class="loader" id="loader">
+            <div class="loader-card">
+                <div class="spinner"></div>
+                <b id="loaderTitle">Загружаем нейросеть…</b>
+                <span id="loaderText">Это займёт несколько секунд, только в первый раз</span>
+                <div class="loader-bar"><span></span></div>
+                <button class="btn filled ripple" id="retryBtn" type="button" hidden>Повторить</button>
+            </div>
+        </div>
+
+        <div class="session-bottom">
+            <div class="found" id="found"></div>
+            <div class="session-controls">
+                <button class="round-btn ripple" id="sessionSwitch" type="button" aria-label="Сменить камеру">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16m0 4v-4h-4"/></svg>
+                    <small>Камера</small>
+                </button>
+                <button class="shutter ripple" id="shotBtn" type="button" aria-label="Сделать снимок">
+                    <span></span>
+                    <small>Снимок</small>
+                </button>
+                <button class="round-btn end ripple" id="endBtn" type="button" aria-label="Завершить сессию">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    <small>Завершить</small>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Всплывающее сообщение снизу (snackbar, как в приложениях Google) -->
+    <div class="snackbar" id="snackbar" role="status"></div>
+
+    <!-- нейросеть: TensorFlow.js + готовая модель COCO-SSD (80 видов объектов) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+    <script src="labels.js?v=1"></script>
+    <script src="vision.js?v=3"></script>
+</body>
+</html>

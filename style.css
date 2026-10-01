@@ -77,6 +77,104 @@ header {
     box-shadow: 3px 3px 0px var(--border-color);
 }
 
+/* ===== Поиск проектов ===== */
+.sub-nav {
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.sub-nav .section-title { white-space: nowrap; }
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+/* все элементы справа одной высоты */
+.nav-actions .btn,
+.search-box.open .search-input {
+    height: 42px;
+}
+
+.nav-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* поле спрятано, пока не нажали на лупу */
+.search-input {
+    width: 0;
+    padding: 8px 0;
+    border: 0 solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font: inherit;
+    font-weight: 600;
+    opacity: 0;
+    box-shadow: 0 0 0 var(--border-color);
+    transition: width 0.3s ease, padding 0.3s ease, opacity 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.search-box.open .search-input {
+    width: 220px;
+    padding: 8px 12px;
+    border-width: 3px;
+    opacity: 1;
+    box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.search-input:focus {
+    outline: none;
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px var(--border-color);
+    background: #fffde7;
+}
+
+.search-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+
+.search-btn img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+}
+
+.search-box.open .search-btn { background: var(--accent-hover); }
+
+/* во время поиска прячем заглушку «скоро» и серые скелетоны */
+body.searching .projects-list > .project-card { display: none; }
+.project-card.search-hidden { display: none; }
+
+.search-empty {
+    border: 3px dashed var(--border-color);
+    padding: 20px;
+    text-align: center;
+    font-weight: 600;
+    background: var(--card-bg);
+}
+
+.search-empty[hidden] { display: none; }
+
+@media (max-width: 600px) {
+    .search-box.open .search-input { width: 140px; }
+}
+
 /* Список проектов */
 .projects-list {
     display: flex;

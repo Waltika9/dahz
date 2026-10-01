@@ -68,6 +68,14 @@ const BUILTIN_PROJECTS = {
     glubokiy_bolnoy: {
         title: 'Глубокий Больной ✨', link: 'projects/glubokiy_bolnoy/index.html',
         tag: 'glubokiy_bolnoy.js', image: '', order: 3, eternal: true
+    },
+    wh_p: {
+        title: 'Презентация "Древняя Греция"', link: 'projects/wh_p/index.html',
+        tag: 'wh_p.css', image: 'images/wh_p_images/древняя_греция_превью.jpg', order: 4, eternal: true
+    },
+    vision: {
+        title: 'Vision👁️', link: 'projects/vision/index.html',
+        tag: 'vision.js', image: '', order: 5, eternal: true
     }
 };
 
@@ -144,8 +152,15 @@ function safeLink(link) {
     return '';
 }
 
+// Картинки, которые переехали в другую папку (в базе мог остаться старый путь)
+const MOVED_IMAGES = {
+    'images/древняя_греция_превью.jpg': 'images/wh_p_images/древняя_греция_превью.jpg'
+};
+
+// Разрешаем картинки из images/ и из одной вложенной папки (images/папка/файл)
 function safeImage(path) {
-    return /^images\/[\w.-]+$/.test(path) ? path : '';
+    path = MOVED_IMAGES[path] || path;
+    return /^images\/([\p{L}\p{N}_.-]+\/)?[\p{L}\p{N}_.-]+$/u.test(path) && !path.includes('..') ? path : '';
 }
 
 // Подпись справа от названия: имя файла или адрес сайта

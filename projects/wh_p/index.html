@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>История Древней Греции</title>
+    <link rel="icon" type="image/png" href="../../images/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="wh_p.css?v=13">
+</head>
+<body>
+    <main class="stage">
+        <div class="viewport">
+            <!-- Фон, который остаётся на месте при смене слайдов -->
+            <div class="ambient" aria-hidden="true">
+                <span class="orb gold" id="orbGold"></span>
+                <span class="orb blue" id="orbBlue"></span>
+                <span class="bg-letter" id="bgLetter"></span>
+            </div>
+            <div class="chapter" id="chapter"><b id="chapterNum"></b><span id="chapterName"></span></div>
+
+            <div class="track" id="track">
+
+                <!-- ===== 1. ТИТУЛЬНЫЙ ===== -->
+                <section class="slide hero" data-id="hero" data-title="Введение">
+                    <div class="reveal home-wrap" style="--i:0">
+                        <a class="home-btn" href="../../index.html">
+                            <img src="../../images/back.png" alt="">
+                            <span>На главную</span>
+                        </a>
+                    </div>
+
+                    <div class="hero-text">
+                        <p class="eyebrow reveal" style="--i:1">Предмет: Всемирная история</p>
+                        <h1 class="reveal" style="--i:2">История <span class="gradient">Древней Греции</span></h1>
+                        <p class="dedication reveal" style="--i:3">Специально для Ирины Петровны</p>
+                    </div>
+
+                    <div class="globe-wrap" id="globeWrap">
+                        <div id="globe"></div>
+                        <div class="tip point-tip" id="pointTip">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 7-6 2-2 6z"/></svg>
+                            <span id="pointTipText">Наведите курсор на точку, чтобы узнать подробности</span>
+                        </div>
+                    </div>
+
+                    <div class="device-note reveal" style="--i:4">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="2.5" y="3.5" width="19" height="13" rx="2"/>
+                            <path d="M8 20.5h8M12 16.5v4"/>
+                        </svg>
+                        <span>Для корректного отображения рекомендуется просмотр на компьютере</span>
+                    </div>
+                </section>
+
+                <!-- ===== 2. ЛЕНТА ВРЕМЕНИ ===== -->
+                <section class="slide tl-slide" data-id="timeline" data-title="Хронология">
+                    <header class="slide-head">
+                        <p class="eyebrow reveal" style="--i:0">Хронология · все даты до н. э.</p>
+                        <h2 class="title reveal" style="--i:1">Три тысячи лет <span class="gradient">истории</span></h2>
+                    </header>
+
+                    <div class="timeline reveal" style="--i:2">
+                        <div class="tl-line"><span class="tl-progress" id="tlProgress"></span></div>
+                        <div class="tl-points" id="tlPoints"></div>
+                    </div>
+
+                    <article class="tl-detail swappable reveal" style="--i:3" id="tlDetail">
+                        <div class="tl-img"><img id="tlImg" alt=""></div>
+                        <div class="tl-text">
+                            <p class="tl-date" id="tlDate"></p>
+                            <h3 id="tlTitle"></h3>
+                            <p class="tl-desc" id="tlDesc"></p>
+                        </div>
+                    </article>
+                </section>
+
+                <!-- ===== 3. АФИНЫ ПРОТИВ СПАРТЫ ===== -->
+                <section class="slide cmp-slide" data-id="compare" data-title="Афины и Спарта">
+                    <div class="cmp" id="cmp">
+                        <div class="cmp-side athens">
+                            <div class="cmp-bg" style="background-image: url('../../images/wh_p_images/greece_athens.jpg')"></div>
+                            <div class="cmp-content">
+                                <p class="eyebrow reveal" style="--i:1">Город философов</p>
+                                <h2 class="reveal" style="--i:2">Афины</h2>
+                                <div class="cmp-rows">
+                                    <div class="cmp-row reveal" style="--i:3"><b>Власть</b><span>Демократия: законы принимает народное собрание всех свободных граждан</span></div>
+                                    <div class="cmp-row reveal" style="--i:4"><b>Воспитание</b><span>Школы: грамота, музыка, гимнастика и философия</span></div>
+                                    <div class="cmp-row reveal" style="--i:5"><b>Армия</b><span>Сильнейший флот Греции — быстрые корабли-триеры</span></div>
+                                    <div class="cmp-row reveal" style="--i:6"><b>Женщины</b><span>Почти не участвовали в общественной жизни, вели домашнее хозяйство</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cmp-side sparta">
+                            <div class="cmp-bg" style="background-image: url('../../images/wh_p_images/greece_sparta.jpg')"></div>
+                            <div class="cmp-content">
+                                <p class="eyebrow reveal" style="--i:1">Город воинов</p>
+                                <h2 class="reveal" style="--i:2">Спарта</h2>
+                                <div class="cmp-rows">
+                                    <div class="cmp-row reveal" style="--i:3"><b>Власть</b><span>Два царя и совет старейшин — на деле правила знать (олигархия)</span></div>
+                                    <div class="cmp-row reveal" style="--i:4"><b>Воспитание</b><span>С 7 лет мальчиков забирали из семьи и растили воинами</span></div>
+                                    <div class="cmp-row reveal" style="--i:5"><b>Армия</b><span>Лучшая сухопутная армия — непобедимая фаланга гоплитов</span></div>
+                                    <div class="cmp-row reveal" style="--i:6"><b>Женщины</b><span>Занимались спортом, управляли хозяйством и имели больше свобод</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cmp-handle reveal" style="--i:7">
+                            <span class="cmp-knob">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>
+                            </span>
+                            <div class="tip cmp-tip" id="cmpTip">Потяните, чтобы сравнить</div>
+                        </div>
+
+                        <p class="cmp-top reveal" style="--i:0">Два полиса — два мира</p>
+                    </div>
+                </section>
+
+                <!-- ===== 4. БОГИ ОЛИМПА ===== -->
+                <section class="slide" data-id="gods" data-title="Боги Олимпа">
+                    <header class="slide-head">
+                        <p class="eyebrow reveal" style="--i:0">Мифология</p>
+                        <h2 class="title reveal" style="--i:1">Боги <span class="gradient">Олимпа</span></h2>
+                        <p class="slide-sub reveal" style="--i:1.5" id="godsHint">Наведите курсор на карточку, чтобы перевернуть её · Листайте колесом мыши</p>
+                    </header>
+                    <div class="gods-bar reveal" style="--i:2" id="godsBar">
+                        <span class="gods-thumb" id="godsThumb"></span>
+                    </div>
+                    <div class="gods" id="gods"></div>
+                </section>
+
+                <!-- ===== 5. АРХИТЕКТУРА ===== -->
+                <section class="slide arch-slide" data-id="arch" data-title="Архитектура">
+                    <div class="arch-text">
+                        <p class="eyebrow reveal" style="--i:0">Архитектура</p>
+                        <h2 class="title reveal" style="--i:1">Три ордера <span class="gradient">колонн</span></h2>
+
+                        <div class="segmented reveal" style="--i:2" id="orderSwitch">
+                            <span class="seg-indicator"></span>
+                            <button class="active">Дорический</button>
+                            <button>Ионический</button>
+                            <button>Коринфский</button>
+                        </div>
+
+                        <div class="arch-info swappable reveal" style="--i:3" id="archInfo">
+                            <h3 id="archName"></h3>
+                            <p id="archDesc"></p>
+                            <div class="chips" id="archChips"></div>
+                        </div>
+
+                        <div class="parthenon reveal" style="--i:4">
+                            <img src="../../images/wh_p_images/greece_athens.jpg" alt="" onerror="this.remove()">
+                            <div>
+                                <b>Парфенон</b>
+                                <span>447–438 гг. до н. э. · храм Афины на Акрополе, дорический ордер</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="arch-3d reveal" style="--i:2" id="column3d">
+                        <p class="arch-hint">Потяните, чтобы повернуть колонну</p>
+                    </div>
+                </section>
+
+                <!-- ===== 6. ОЛИМПИЙСКИЕ ИГРЫ ===== -->
+                <section class="slide olymp-slide" data-id="olymp" data-title="Олимпийские игры">
+                    <div class="olymp-bg reveal" style="--i:0">
+                        <img src="../../images/wh_p_images/olympics_discobolus.jpg" alt="" onerror="this.parentNode.remove()">
+                    </div>
+
+                    <header class="slide-head">
+                        <p class="eyebrow reveal" style="--i:0">Олимпийские игры</p>
+                        <h2 class="title reveal" style="--i:1">Праздник длиной <span class="gradient">в тысячу лет</span></h2>
+                    </header>
+
+                    <div class="stats">
+                        <div class="stat reveal" style="--i:2">
+                            <span class="stat-num gold-num" data-to="776">0</span>
+                            <span class="stat-unit">год до н. э.</span>
+                            <p>Первые Олимпийские игры в Олимпии</p>
+                        </div>
+                        <div class="stat reveal" style="--i:3">
+                            <span class="stat-num" data-to="293">0</span>
+                            <span class="stat-unit">Олимпиады</span>
+                            <p>Столько раз игры прошли в древности</p>
+                        </div>
+                        <div class="stat reveal" style="--i:4">
+                            <span class="stat-num" data-to="1168">0</span>
+                            <span class="stat-unit">лет</span>
+                            <p>Существовали игры — до 393 г. н. э.</p>
+                        </div>
+                        <div class="stat reveal" style="--i:5">
+                            <span class="stat-num" data-to="4">0</span>
+                            <span class="stat-unit">года</span>
+                            <p>Между играми — этот срок и называли олимпиадой</p>
+                        </div>
+                    </div>
+
+                    <div class="sports-block reveal" style="--i:6">
+                        <p class="sports-label">Виды состязаний</p>
+                        <div class="sports">
+                            <span class="sport">🏃 Бег на стадий <small>≈ 192 м</small></span>
+                            <span class="sport">🥇 Пятиборье <small>бег, прыжки, диск, копьё, борьба</small></span>
+                            <span class="sport">🤼 Борьба</span>
+                            <span class="sport">🥊 Кулачный бой</span>
+                            <span class="sport">💪 Панкратион</span>
+                            <span class="sport">🐎 Гонки колесниц</span>
+                        </div>
+                    </div>
+
+                    <p class="olymp-fact reveal" style="--i:7">
+                        <span>🌿</span>
+                        Победителя награждали венком из ветвей оливы, а на время игр по всей Греции объявлялось священное перемирие.
+                    </p>
+                </section>
+
+                <!-- ===== 7. НАСЛЕДИЕ ===== -->
+                <section class="slide" data-id="legacy" data-title="Наследие">
+                    <header class="slide-head">
+                        <p class="eyebrow reveal" style="--i:0">Наследие</p>
+                        <h2 class="title reveal" style="--i:1">Греция живёт <span class="gradient">рядом с нами</span></h2>
+                    </header>
+
+                    <div class="bento">
+                        <div class="tile wide reveal" style="--i:2">
+                            <div class="tile-visual gradient">δῆμος + κράτος</div>
+                            <div><h3>Демократия</h3><p>«Власть народа». И слово, и сама идея родились в Афинах — сегодня так устроены многие страны мира.</p></div>
+                        </div>
+                        <div class="tile reveal" style="--i:3">
+                            <div class="tile-visual" id="alphaLetter">Α</div>
+                            <div><h3>Алфавит</h3><p>От греческого алфавита произошли латиница и кириллица.</p></div>
+                        </div>
+                        <div class="tile reveal" style="--i:4">
+                            <div class="tile-visual">🎭</div>
+                            <div><h3>Театр</h3><p>Трагедия и комедия родились в Афинах на праздниках Диониса.</p></div>
+                        </div>
+                        <div class="tile reveal" style="--i:5">
+                            <div class="tile-visual">1896</div>
+                            <div><h3>Олимпиада</h3><p>Игры возродили в Афинах спустя полторы тысячи лет.</p></div>
+                        </div>
+                        <div class="tile wide reveal" style="--i:6">
+                            <div class="tile-visual">a² + b² = c²</div>
+                            <div><h3>Математика</h3><p>Теорема Пифагора, геометрия Евклида, открытия Архимеда — мы до сих пор учим их в школе.</p></div>
+                        </div>
+                        <div class="tile reveal" style="--i:7">
+                            <div class="tile-visual small">Сократ · Платон · Аристотель</div>
+                            <div><h3>Философия</h3><p>Учили задавать вопросы и искать истину.</p></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== 8. МУЗЫКА ===== -->
+                <section class="slide music-slide" data-id="music" data-title="Музыка">
+                    <div class="music-text">
+                        <p class="eyebrow reveal" style="--i:0">Звучание древности</p>
+                        <h2 class="title reveal" style="--i:1">Самая древняя <span class="gradient">песня в мире</span></h2>
+                        <p class="music-desc reveal" style="--i:2">«Эпитафия Сейкила» — песня, которую около 2000 лет назад высекли на мраморной надгробной колонне вместе с нотами. Это самое древнее музыкальное произведение, дошедшее до нас целиком.</p>
+                        <div class="chips reveal" style="--i:3">
+                            <span class="chip">I век н. э.</span>
+                            <span class="chip">Найдена в 1883 г. в Турции</span>
+                            <span class="chip">Хранится в Копенгагене</span>
+                        </div>
+                        <blockquote class="music-quote reveal" style="--i:4">
+                            <p>«Пока живёшь — сияй, ни о чём не печалься. Жизнь коротка, а время берёт своё».</p>
+                            <span>Смысл песни в переводе</span>
+                        </blockquote>
+                    </div>
+
+                    <div class="player reveal" style="--i:2" id="player">
+                        <div class="player-cover">
+                            <img class="cover-bg" src="../../images/wh_p_images/seikilos_stone.jpg" alt="" aria-hidden="true">
+                            <img class="cover-main" src="../../images/wh_p_images/seikilos_stone.jpg" alt="" onerror="this.parentNode.classList.add('noimg')">
+                            <span class="player-note">♪</span>
+                        </div>
+                        <div class="player-info">
+                            <b>Эпитафия Сейкила</b>
+                            <span>Древняя Греция · I век н. э.</span>
+                        </div>
+                        <canvas class="player-wave" id="playerWave"></canvas>
+                        <div class="player-time">
+                            <span id="timeCur">0:00</span>
+                            <div class="player-bar" id="playerBar"><span id="playerProgress"></span></div>
+                            <span id="timeDur">0:00</span>
+                        </div>
+                        <button class="play-btn" id="playBtn" aria-label="Слушать">
+                            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+                            <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+                        </button>
+                        <audio id="audio" src="../../audio/wh_p_audio/seikilos.ogg" preload="auto"></audio>
+                    </div>
+                </section>
+
+                <!-- ===== 9. ВИКТОРИНА ===== -->
+                <section class="slide quiz-slide" data-id="quiz" data-title="Викторина">
+                    <header class="slide-head center">
+                        <p class="eyebrow reveal" style="--i:0">Проверим себя</p>
+                        <h2 class="title reveal" style="--i:1">Мини-<span class="gradient">викторина</span></h2>
+                    </header>
+
+                    <div class="quiz reveal" style="--i:2">
+                        <div class="quiz-main swappable" id="quizMain">
+                            <div class="quiz-top">
+                                <span id="quizCounter"></span>
+                                <div class="quiz-bar"><span id="quizBar"></span></div>
+                            </div>
+                            <h3 id="quizQ"></h3>
+                            <div class="quiz-options" id="quizOptions"></div>
+                            <div class="quiz-bottom">
+                                <p class="quiz-feedback" id="quizFeedback"></p>
+                                <div class="quiz-next" id="quizNextWrap">
+                                    <button class="pill-btn primary" id="quizNext">Следующий вопрос</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quiz-result" id="quizResult" hidden>
+                            <div class="quiz-score gradient" id="quizScore"></div>
+                            <h3 id="quizResultTitle"></h3>
+                            <button class="pill-btn secondary" id="quizRestart">Пройти ещё раз</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== 10. ФИНАЛ ===== -->
+                <section class="slide final-slide" data-id="final" data-title="Финал">
+                    <p class="eyebrow reveal" style="--i:0">История Древней Греции</p>
+                    <h2 class="final-title reveal" style="--i:1">Спасибо<br>за <span class="gradient">внимание</span></h2>
+                    <p class="final-sub reveal" style="--i:2">Есть вопросы?</p>
+                    <div class="final-greek reveal" style="--i:3">
+                        <b lang="el">Ευχαριστώ</b>
+                        <span class="transcr">[эф-ха-ри-сто́]</span>
+                        <span>— «спасибо» по-гречески, ударение на последний слог</span>
+                        <button class="speak-btn" id="speakBtn" hidden aria-label="Послушать произношение">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <nav class="controls">
+            <div class="dots" id="dots"></div>
+            <div class="next-wrap">
+                <div class="tip next-tip" id="nextTip">Нажмите, чтобы перейти к следующему слайду</div>
+                <button class="next-btn" id="nextBtn" disabled>
+                    <span class="next-fill" id="nextFill"></span>
+                    <img src="../../images/next.png" alt="" id="nextIcon">
+                    <span class="next-text" id="nextText">Следующий слайд</span>
+                </button>
+            </div>
+        </nav>
+    </main>
+
+    <!-- ===== ОКНО ДЛЯ ТЕЛЕФОНОВ ===== -->
+    <div class="modal-backdrop" id="mobileModal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mobileModalTitle">
+            <svg class="modal-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2.5" y="3.5" width="19" height="13" rx="2"/>
+                <path d="M8 20.5h8M12 16.5v4"/>
+            </svg>
+            <h3 id="mobileModalTitle">Откройте на компьютере</h3>
+            <p>Презентация рассчитана на большой экран. На телефоне часть анимаций и интерактивных элементов может отображаться некорректно.</p>
+            <div class="modal-actions">
+                <button class="pill-btn primary" id="modalContinue">Всё равно продолжить</button>
+                <a class="pill-btn secondary" href="../../index.html">Вернуться на главную</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- globe.gl должен грузиться раньше three.js: у него своя, более новая версия Three -->
+    <script src="https://cdn.jsdelivr.net/npm/globe.gl@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="column3d.js?v=1"></script>
+    <script src="wh_p.js?v=12"></script>
+</body>
+</html>
