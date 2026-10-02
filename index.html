@@ -11,7 +11,7 @@
     <!-- Подключаем внешние стили -->
     <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
          иначе браузер может до 10 минут брать старую копию из кэша -->
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body class="projects-loading">
 
@@ -50,6 +50,7 @@
         <button class="btn" id="createProjectBtn" type="button">➕ Создать проект</button>
         <button class="btn" id="tokenBtn" type="button" hidden>🔑 Токен GitHub</button>
         <button class="btn" id="usersBtn" type="button" hidden>👥 Пользователи</button>
+        <button class="btn" id="activityBtn" type="button" hidden>📊 Активность</button>
     </div>
 
     <!-- Карточки проектов -->
@@ -215,6 +216,22 @@
         </div>
     </div>
 
+    <!-- Модальное окно: последняя активность (владелец и те, кому он разрешил) -->
+    <div id="activityModal" class="modal-overlay">
+        <div class="modal-window modal-wide activity-window">
+            <button class="modal-close" id="closeActivityBtn" type="button">×</button>
+            <h3 class="modal-title">Последняя активность</h3>
+            <div class="activity-stats" id="activityStats"></div>
+            <div class="activity-tools">
+                <input type="search" id="activitySearch" class="login-input" placeholder="Фильтр: ник, браузер, проект..." autocomplete="off">
+                <button class="admin-btn" id="activityRefreshBtn" type="button">🔄 Обновить</button>
+                <button class="admin-btn" id="activityExportBtn" type="button">💾 Экспортировать логи</button>
+            </div>
+            <div class="activity-list" id="activityList"><p class="form-hint">Загрузка...</p></div>
+            <button class="admin-btn activity-more" id="activityMoreBtn" type="button" hidden>Показать ещё</button>
+        </div>
+    </div>
+
     <!-- Модальное окно: подтверждение -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-window">
@@ -231,6 +248,6 @@
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
     <script src="script.js?v=6"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
-    <script type="module" src="firebase.js?v=11"></script>
+    <script type="module" src="firebase.js?v=12"></script>
 </body>
 </html>

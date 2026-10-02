@@ -12,8 +12,8 @@ import {
     deleteUser, signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
-    getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc,
-    writeBatch, query, where, serverTimestamp
+    getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDoc, getDocs, updateDoc,
+    writeBatch, query, where, orderBy, limit, startAfter, arrayUnion, serverTimestamp, Timestamp
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import * as gh from './github.js?v=5';
 
@@ -46,8 +46,16 @@ const STATUSES = {
 const PERMS = {
     status:     '🔄 Менять статус',
     visibility: '👁 Скрывать и показывать',
-    create:     '➕ Создавать проекты'
+    create:     '➕ Создавать проекты',
+    activity:   '📊 Смотреть активность'
 };
+
+// Статистика посещений (коллекция visits): одна запись = один заход в браузере.
+// Бесплатный тариф Spark в день: 50 000 чтений, 20 000 записей, 20 000 удалений.
+// Заход = 1 запись + по 1 за каждый открытый проект; окно активности = до VISITS_PAGE чтений.
+const VISITS_PAGE = 200;        // сколько последних заходов загружать за раз
+const VISITS_KEEP_DAYS = 30;    // старше — владелец удаляет автоматически (раз в день)
+const VISIT_PAGES_MAX = 30;     // сколько проектов запоминать за один заход
 
 const PROJECT_DEFAULTS = {
     title: '', link: '', tag: '', image: '', author: ADMIN_NAME,
@@ -83,6 +91,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const projectsCol = collection(db, 'projects');
+const visitsCol = collection(db, 'visits');
 
 const $ = (id) => document.getElementById(id);
 
@@ -93,6 +102,12 @@ const tokenBtn = $('tokenBtn');
 const usersBtn = $('usersBtn');
 const usersModal = $('usersModal');
 const usersList = $('usersList');
+const activityBtn = $('activityBtn');
+const activityModal = $('activityModal');
+const activityList = $('activityList');
+const activityStats = $('activityStats');
+const activitySearch = $('activitySearch');
+const activityMoreBtn = $('activityMoreBtn');
 
 const loginBtn = $('loginBtn');
 const loginModal = $('loginModal');
@@ -304,11 +319,24 @@ function buildCard(p) {
         card.appendChild(panel);
     }
 
-    // Посетитель кликает по проекту со статусом — вместо перехода показываем плашку
     card.addEventListener('click', (e) => {
-        if (isAdmin || p.status === 'ok') return;
+        // Посетитель кликает по проекту со статусом — вместо перехода показываем плашку
+        if (!isAdmin && p.status !== 'ok') {
+            e.preventDefault();
+            showToast((STATUSES[p.status] || STATUSES.dev).message, 'warning');
+            return;
+        }
+        if (!link) return;
+
+        // Запоминаем, какой проект открыли. Если он открывается в этой же вкладке —
+        // ждём запись (максимум 0,8 с), иначе браузер уйдёт со страницы раньше
+        const newTab = card.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey;
+        if (newTab) {
+            logProjectView(p);
+            return;
+        }
         e.preventDefault();
-        showToast((STATUSES[p.status] || STATUSES.dev).message, 'warning');
+        logProjectView(p).then(() => { window.location.href = link; });
     });
 
     return card;
@@ -415,6 +443,7 @@ function renderAccountBar() {
     accountBar.hidden = !show;
     tokenBtn.hidden = !isAdmin;
     usersBtn.hidden = !isAdmin;
+    activityBtn.hidden = !can('activity');
     if (!show) return;
 
     if (isAdmin) {
@@ -684,6 +713,25 @@ function renderUsers(snap) {
         const name = document.createElement('div');
         name.className = 'user-name';
         name.textContent = u.nickname || '(без никнейма)';
+
+        // Удаление: аккаунт больше не сможет войти, проекты пользователя остаются на сайте
+        const head = document.createElement('div');
+        head.className = 'user-head';
+        head.append(name, button('🗑 Удалить', 'admin-btn danger', () => openConfirm({
+            title: 'Удалить пользователя?',
+            text: `Аккаунт «${u.nickname || u.email || u.id}» будет удалён: войти в него больше не получится. ` +
+                  'Проекты, которые он уже создал, останутся на сайте. Отменить это действие нельзя.',
+            yesText: 'Да, удалить',
+            onYes: () => run(async () => {
+                const batch = writeBatch(db);
+                batch.set(doc(db, 'bans', u.id), {
+                    email: u.email || '', nickname: u.nickname || '', deletedAt: serverTimestamp()
+                });
+                batch.delete(doc(db, 'members', u.id));
+                await batch.commit();
+            }, `${u.nickname || 'Пользователь'} удалён`)
+        })));
+
         const meta = document.createElement('div');
         meta.className = 'user-meta';
         meta.textContent = `${u.email || ''} · код: ${u.code || '—'}`;
@@ -695,7 +743,7 @@ function renderUsers(snap) {
             box.type = 'checkbox';
             box.checked = u.perms?.[key] === true;
             box.addEventListener('change', () => {
-                // Всегда записываем все три права целиком — так проще проверять в правилах
+                // Всегда записываем все права целиком — так проще проверять в правилах
                 const next = {};
                 for (const k of Object.keys(PERMS)) next[k] = u.perms?.[k] === true;
                 next[key] = box.checked;
@@ -708,7 +756,7 @@ function renderUsers(snap) {
             perms.appendChild(lbl);
         });
 
-        row.append(name, meta, perms);
+        row.append(head, meta, perms);
         usersList.appendChild(row);
     });
 }
@@ -731,6 +779,342 @@ function closeUsers() {
 $('closeUsersBtn').addEventListener('click', closeUsers);
 usersModal.addEventListener('click', (e) => {
     if (e.target === usersModal) closeUsers();
+});
+
+// ===== СТАТИСТИКА ПОСЕЩЕНИЙ: ЗАПИСЬ =====
+// Один заход = одна запись в visits. ID устройства хранится в localStorage,
+// ID захода — в sessionStorage (живёт, пока открыта вкладка).
+
+function storageGet(store, key) {
+    try { return store.getItem(key); } catch { return null; }
+}
+
+function storageSet(store, key, value) {
+    try { store.setItem(key, value); } catch { /* приватный режим — ничего страшного */ }
+}
+
+const randomId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+function deviceId() {
+    let id = storageGet(localStorage, 'dahz_device');
+    if (!id) {
+        id = 'd_' + randomId();
+        storageSet(localStorage, 'dahz_device', id);
+    }
+    return id;
+}
+
+// Браузер, система и тип устройства — по строке, которую браузер сообщает о себе
+function describeDevice() {
+    const ua = navigator.userAgent;
+    const ver = (re) => (ua.match(re) || [])[1] || '';
+
+    let browser = 'Другой браузер';
+    if (/YaBrowser\//.test(ua)) browser = 'Яндекс Браузер ' + ver(/YaBrowser\/(\d+)/);
+    else if (/OPR\/|Opera/.test(ua)) browser = 'Opera ' + ver(/OPR\/(\d+)/);
+    else if (/Edg\//.test(ua)) browser = 'Edge ' + ver(/Edg\/(\d+)/);
+    else if (/Firefox\//.test(ua)) browser = 'Firefox ' + ver(/Firefox\/(\d+)/);
+    else if (/SamsungBrowser\//.test(ua)) browser = 'Samsung Internet ' + ver(/SamsungBrowser\/(\d+)/);
+    else if (/Chrome\//.test(ua)) browser = 'Chrome ' + ver(/Chrome\/(\d+)/);
+    else if (/Safari\//.test(ua)) browser = 'Safari ' + ver(/Version\/(\d+)/);
+
+    const iPadOS = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+    let os = 'Другая система';
+    if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+    else if (/Windows/.test(ua)) os = 'Windows';
+    else if (/Android/.test(ua)) os = 'Android ' + ver(/Android (\d+)/);
+    else if (/iPhone/.test(ua)) os = 'iOS ' + ver(/OS (\d+)_/);
+    else if (/iPad/.test(ua) || iPadOS) os = 'iPadOS';
+    else if (/Mac OS X/.test(ua)) os = 'macOS';
+    else if (/CrOS/.test(ua)) os = 'ChromeOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+
+    let type = 'Компьютер';
+    if (/iPad|Tablet/.test(ua) || iPadOS || (/Android/.test(ua) && !/Mobile/.test(ua))) type = 'Планшет';
+    else if (/Mobi|iPhone|Android/.test(ua)) type = 'Телефон';
+
+    return {
+        browser: browser.trim(),
+        os: os.trim(),
+        type,
+        screen: `${screen.width}×${screen.height}`,
+        lang: navigator.language || ''
+    };
+}
+
+let visitId = storageGet(sessionStorage, 'dahz_visit');
+let visitReady = null;            // промис: запись о заходе создана
+let visitStarted = false;
+let trackingOff = false;          // свои заходы владелец не записывает
+let visitPages = Number(storageGet(sessionStorage, 'dahz_visit_pages') || 0);
+let visitUserKey = '';            // кого уже записали в заход (uid|ник)
+
+function createVisit(user) {
+    visitId = 'v_' + randomId();
+    storageSet(sessionStorage, 'dahz_visit', visitId);
+    visitPages = 0;
+    storageSet(sessionStorage, 'dahz_visit_pages', '0');
+    return setDoc(doc(db, 'visits', visitId), {
+        ...describeDevice(),
+        device: deviceId(),
+        uid: user ? user.uid : null,
+        nick: null,
+        startedAt: serverTimestamp(),
+        lastAt: serverTimestamp(),
+        pages: []
+    });
+}
+
+// Вызывается при первом определении аккаунта (вошёл / гость)
+function startVisit(user) {
+    if (visitStarted) return;
+    visitStarted = true;
+    if (isAdmin) {
+        trackingOff = true;
+        // в этой вкладке владелец сначала был гостем — убираем ту запись
+        if (visitId) deleteDoc(doc(db, 'visits', visitId)).catch(() => {});
+        return;
+    }
+    visitReady = (visitId
+        ? updateDoc(doc(db, 'visits', visitId), { lastAt: serverTimestamp() })
+        : Promise.reject(new Error('new'))
+    ).catch(() => createVisit(user)).catch((err) => {
+        trackingOff = true;   // нет прав / нет интернета — просто не пишем статистику
+        console.warn('Статистика не записана:', err.code || err.message);
+    });
+}
+
+// Вошёл в аккаунт посреди захода — дописываем, кто это
+function updateVisitUser() {
+    if (trackingOff || !visitReady || !currentUser) return;
+    const nick = member?.nickname || null;
+    const key = currentUser.uid + '|' + nick;
+    if (key === visitUserKey) return;
+    visitUserKey = key;
+    visitReady.then(() => updateDoc(doc(db, 'visits', visitId), {
+        uid: currentUser.uid, nick, lastAt: serverTimestamp()
+    })).catch(() => {});
+}
+
+// Владелец вошёл посреди захода — убираем этот заход из статистики
+function dropOwnVisit() {
+    trackingOff = true;
+    if (visitId && visitReady) {
+        visitReady.then(() => deleteDoc(doc(db, 'visits', visitId))).catch(() => {});
+    }
+}
+
+function logProjectView(p) {
+    if (trackingOff || !visitReady || visitPages >= VISIT_PAGES_MAX) return Promise.resolve();
+    visitPages++;
+    storageSet(sessionStorage, 'dahz_visit_pages', String(visitPages));
+    const write = visitReady
+        .then(() => updateDoc(doc(db, 'visits', visitId), {
+            pages: arrayUnion({ id: p.id, title: String(p.title || p.id).slice(0, 80), at: Date.now() }),
+            lastAt: serverTimestamp()
+        }))
+        .catch((err) => console.warn('Не удалось записать просмотр:', err.code || err.message));
+    return Promise.race([write, new Promise((r) => setTimeout(r, 800))]);
+}
+
+// ===== СТАТИСТИКА ПОСЕЩЕНИЙ: ОКНО «ПОСЛЕДНЯЯ АКТИВНОСТЬ» =====
+let visits = [];             // загруженные заходы
+let lastVisitSnap = null;    // для «Показать ещё»
+
+const TYPE_ICONS = { 'Компьютер': '💻', 'Телефон': '📱', 'Планшет': '📟' };
+
+function tsToDate(ts) {
+    return ts?.toDate ? ts.toDate() : (typeof ts === 'number' ? new Date(ts) : null);
+}
+
+function fmtTime(date, withDate = true) {
+    if (!date) return '—';
+    const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    if (!withDate) return time;
+    const today = new Date();
+    const yesterday = new Date(Date.now() - 864e5);
+    if (date.toDateString() === today.toDateString()) return `сегодня, ${time}`;
+    if (date.toDateString() === yesterday.toDateString()) return `вчера, ${time}`;
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + `, ${time}`;
+}
+
+function visitName(v) {
+    if (v.nick) return v.nick;
+    if (v.uid) return 'Пользователь без ника';
+    return 'Гость #' + String(v.device || '').slice(-4);
+}
+
+function visitText(v) {
+    return [visitName(v), v.browser, v.os, v.type, v.screen, v.lang, ...(v.pages || []).map((p) => p.title)]
+        .join(' ').toLowerCase();
+}
+
+function renderActivity() {
+    const filter = activitySearch.value.trim().toLowerCase();
+    const shown = filter ? visits.filter((v) => visitText(v).includes(filter)) : visits;
+
+    // Сводка по загруженным заходам
+    const devices = new Set(visits.map((v) => v.device));
+    const members = new Set(visits.filter((v) => v.uid).map((v) => v.uid));
+    const views = {};
+    visits.forEach((v) => (v.pages || []).forEach((p) => { views[p.title] = (views[p.title] || 0) + 1; }));
+    const top = Object.entries(views).sort((a, b) => b[1] - a[1])[0];
+    activityStats.innerHTML = '';
+    [
+        `👣 Заходов: ${visits.length}`,
+        `🖥 Устройств: ${devices.size}`,
+        `👤 С аккаунтом: ${members.size}`,
+        top ? `🏆 Популярное: ${top[0]} (${top[1]})` : '🏆 Проекты ещё не открывали'
+    ].forEach((text) => {
+        const s = document.createElement('span');
+        s.className = 'activity-stat';
+        s.textContent = text;
+        activityStats.appendChild(s);
+    });
+
+    activityList.innerHTML = '';
+    if (!shown.length) {
+        const empty = document.createElement('p');
+        empty.className = 'form-hint';
+        empty.textContent = visits.length ? 'Ничего не найдено по фильтру.' : 'Пока никто не заходил.';
+        activityList.appendChild(empty);
+        return;
+    }
+
+    shown.forEach((v) => {
+        const row = document.createElement('div');
+        row.className = 'visit-row' + (v.uid ? ' is-member' : '');
+
+        const head = document.createElement('div');
+        head.className = 'visit-head';
+        const who = document.createElement('span');
+        who.textContent = (v.uid ? '👤 ' : '👻 ') + visitName(v);
+        const time = document.createElement('span');
+        time.className = 'visit-time';
+        const start = tsToDate(v.startedAt);
+        const last = tsToDate(v.lastAt);
+        time.textContent = start && last && last - start > 60000
+            ? `${fmtTime(start)} → ${fmtTime(last, false)}`
+            : fmtTime(start || last);
+        head.append(who, time);
+
+        const device = document.createElement('div');
+        device.className = 'visit-device';
+        device.textContent = [
+            `${TYPE_ICONS[v.type] || '🖥'} ${v.type || '?'}`, v.browser, v.os, v.screen, v.lang
+        ].filter(Boolean).join(' · ');
+
+        row.append(head, device);
+
+        if ((v.pages || []).length) {
+            const pages = document.createElement('div');
+            pages.className = 'visit-pages';
+            v.pages.forEach((p) => {
+                const chip = document.createElement('span');
+                chip.className = 'visit-page';
+                chip.textContent = p.title + ' ';
+                const at = document.createElement('small');
+                at.textContent = fmtTime(tsToDate(p.at), false);
+                chip.appendChild(at);
+                pages.appendChild(chip);
+            });
+            row.appendChild(pages);
+        } else {
+            const none = document.createElement('div');
+            none.className = 'visit-device';
+            none.textContent = 'Проекты не открывал';
+            row.appendChild(none);
+        }
+
+        activityList.appendChild(row);
+    });
+}
+
+async function loadVisits(more = false) {
+    const parts = [orderBy('lastAt', 'desc')];
+    if (more && lastVisitSnap) parts.push(startAfter(lastVisitSnap));
+    parts.push(limit(VISITS_PAGE));
+    try {
+        const snap = await getDocs(query(visitsCol, ...parts));
+        const loaded = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        visits = more ? visits.concat(loaded) : loaded;
+        lastVisitSnap = snap.docs[snap.docs.length - 1] || lastVisitSnap;
+        activityMoreBtn.hidden = snap.docs.length < VISITS_PAGE;
+        renderActivity();
+    } catch (err) {
+        console.error(err);
+        activityList.innerHTML = '';
+        const p = document.createElement('p');
+        p.className = 'form-hint';
+        p.textContent = 'Не удалось загрузить активность — проверь правила Firestore.';
+        activityList.appendChild(p);
+    }
+}
+
+// Раз в день владелец удаляет заходы старше VISITS_KEEP_DAYS дней
+async function cleanupOldVisits() {
+    if (!isAdmin) return;
+    const today = new Date().toDateString();
+    if (storageGet(localStorage, 'dahz_visits_cleanup') === today) return;
+    try {
+        const cutoff = Timestamp.fromMillis(Date.now() - VISITS_KEEP_DAYS * 864e5);
+        const snap = await getDocs(query(visitsCol, where('lastAt', '<', cutoff), limit(300)));
+        if (!snap.empty) {
+            const batch = writeBatch(db);
+            snap.forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+        }
+        storageSet(localStorage, 'dahz_visits_cleanup', today);
+    } catch (err) {
+        console.warn('Не удалось почистить старую статистику:', err.code || err.message);
+    }
+}
+
+// Экспорт в CSV (открывается в Excel): разделитель «;», в начале BOM — чтобы русские буквы читались
+function exportVisits() {
+    if (!visits.length) {
+        showToast('Нечего экспортировать', 'warning');
+        return;
+    }
+    const cell = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const dt = (d) => d ? d.toLocaleString('ru-RU') : '';
+    const header = ['Начало', 'Последняя активность', 'Кто', 'Аккаунт (uid)', 'Тип', 'Браузер', 'Система',
+        'Экран', 'Язык', 'ID устройства', 'Проекты'];
+    const rows = visits.map((v) => [
+        dt(tsToDate(v.startedAt)), dt(tsToDate(v.lastAt)), visitName(v), v.uid || '', v.type, v.browser, v.os,
+        v.screen, v.lang, v.device,
+        (v.pages || []).map((p) => `${p.title} (${fmtTime(tsToDate(p.at), false)})`).join(', ')
+    ]);
+    const csv = '﻿' + [header, ...rows].map((r) => r.map(cell).join(';')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `dahz-activity-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    showToast(`Сохранено заходов: ${visits.length}`, 'success');
+}
+
+activityBtn.addEventListener('click', async () => {
+    if (!can('activity')) return;
+    activityModal.classList.add('active');
+    activitySearch.value = '';
+    activityList.innerHTML = '<p class="form-hint">Загрузка...</p>';
+    await cleanupOldVisits();
+    loadVisits();
+});
+
+$('activityRefreshBtn').addEventListener('click', () => loadVisits());
+$('activityExportBtn').addEventListener('click', exportVisits);
+activityMoreBtn.addEventListener('click', () => loadVisits(true));
+activitySearch.addEventListener('input', renderActivity);
+
+function closeActivity() {
+    activityModal.classList.remove('active');
+}
+
+$('closeActivityBtn').addEventListener('click', closeActivity);
+activityModal.addEventListener('click', (e) => {
+    if (e.target === activityModal) closeActivity();
 });
 
 // ===== ОКНО ПОДТВЕРЖДЕНИЯ =====
@@ -795,6 +1179,8 @@ function watchMember() {
     if (!currentUser || isAdmin) return;
     unsubMember = onSnapshot(doc(db, 'members', currentUser.uid), (snap) => {
         member = snap.exists() ? snap.data() : null;
+        if (!can('activity')) closeActivity();   // право забрали — окно закрывается
+        updateVisitUser();
         render();
     }, () => {
         member = null;
@@ -802,10 +1188,34 @@ function watchMember() {
     });
 }
 
+// Владелец удалил аккаунт (bans/{uid}) — при входе аккаунт удаляет сам себя
+async function removeIfBanned(user) {
+    let banned = false;
+    try {
+        banned = (await getDoc(doc(db, 'bans', user.uid))).exists();
+    } catch { /* нет доступа — считаем, что не удалён */ }
+    if (!banned) return false;
+    try {
+        await deleteUser(user);
+    } catch {
+        await signOut(auth);   // давно входил — Firebase просит свежий вход; удалим при следующем
+    }
+    showToast('Этот аккаунт был удалён владельцем сайта');
+    return true;
+}
+
 onAuthStateChanged(auth, async (user) => {
+    if (user && user.uid !== ADMIN_UID && await removeIfBanned(user)) return;
+
     currentUser = user;
     isAdmin = !!user && user.uid === ADMIN_UID;
     loginBtn.textContent = user ? 'Выйти' : LOGIN_BTN_TEXT;
+
+    // Статистика посещений
+    if (!visitStarted) startVisit(user);
+    else if (isAdmin) dropOwnVisit();
+    else updateVisitUser();
+    if (!user) visitUserKey = '';
 
     // Дополнительные проекты: владельцу — все, пользователю — его заявки
     unsubExtra?.();
@@ -825,6 +1235,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     if (!isAdmin) closeUsers();
+    if (!can('activity')) closeActivity();
     watchMember();
     render();
 });
@@ -903,6 +1314,7 @@ document.addEventListener('keydown', (e) => {
     if (projectModal.classList.contains('active')) closeProjectModal();
     if (confirmModal.classList.contains('active')) closeConfirm();
     if (usersModal.classList.contains('active')) closeUsers();
+    closeActivity();
     tokenModal.classList.remove('active');
 });
 
