@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Simulator 🌏</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect width='10' height='10' fill='%23000'/%3E%3Cpath fill='%23fff' d='M3 1h4v1h1v1h1v4H8v1H7v1H3V8H2V7H1V3h1V2h1z'/%3E%3Cpath fill='%23000' d='M3 3h2v1H4v2H3zM6 5h1v2H5V6h1z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+    <!-- Пиксельный космос на весь экран (низкое разрешение, растягивается «пикселями») -->
+    <canvas id="space" class="space"></canvas>
+    <!-- Подписи поверх (полное разрешение) -->
+    <canvas id="overlay" class="overlay"></canvas>
+
+    <!-- ===== Верхняя плашка: название, время, сценарии, настройки ===== -->
+    <header class="topbar frame">
+        <a class="px-btn" href="../../index.html" title="На главную">
+            <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M4 0h1v1H4zM3 1h1v1H3zM2 2h1v1H2zM1 3h1v1H1zM2 4h1v1H2zM3 5h1v1H3zM4 6h1v1H4z"/></svg>
+            <span class="home-lbl">ДОМОЙ</span>
+        </a>
+
+        <div class="brand">
+            <h1 class="brand-title">SPACE SIMULATOR</h1>
+            <div class="stats">
+                <span id="statBodies">ОБЪЕКТОВ: 0</span>
+                <span id="statTime">0 ДН.</span>
+                <span id="statLag" class="lag" hidden>! ЗАМЕДЛЕНИЕ</span>
+            </div>
+        </div>
+
+        <div class="time-bar" role="group" aria-label="Управление временем">
+            <button class="px-btn icon" id="pauseBtn" type="button" title="Пауза (пробел)" aria-label="Пауза">
+                <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M1 0h2v7H1zM4 0h2v7H4z"/></svg>
+            </button>
+            <button class="px-btn icon" id="stepBtn" type="button" title="Шаг вперёд: +5 дней (N)" aria-label="Шаг вперёд">
+                <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M0 0h1v7H0zM1 1h1v5H1zM2 2h1v3H2zM3 3h1v1H3zM5 0h2v7H5z"/></svg>
+            </button>
+            <span class="sep" aria-hidden="true"></span>
+            <div class="speeds" id="speeds">
+                <button class="px-btn small" data-speed="0.1" type="button">0.1X</button>
+                <button class="px-btn small active" data-speed="1" type="button">1X</button>
+                <button class="px-btn small" data-speed="2" type="button">2X</button>
+                <button class="px-btn small" data-speed="5" type="button">5X</button>
+                <button class="px-btn small" data-speed="10" type="button">10X</button>
+                <button class="px-btn small" data-speed="50" type="button">50X</button>
+            </div>
+        </div>
+
+        <div class="top-right">
+            <div class="dropdown down" id="presetsDrop">
+                <button class="px-btn" data-drop type="button">
+                    <span class="lbl">СЦЕНАРИИ</span>
+                    <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3z"/></svg>
+                </button>
+                <div class="drop-menu frame" role="menu">
+                    <div class="menu-title">ГОТОВЫЕ СИСТЕМЫ</div>
+                    <button class="menu-item" data-preset="solar" type="button"><b>Солнечная система</b><span>Солнце и 8 планет с настоящими пропорциями масс, пояс астероидов, комета Галлея</span></button>
+                    <button class="menu-item" data-preset="binary" type="button"><b>Двойная звезда</b><span>Два солнца и планеты на спокойных и хаотичных орбитах</span></button>
+                    <button class="menu-item" data-preset="blackhole" type="button"><b>Земля и чёрная дыра</b><span>Блуждающая чёрная дыра в 5 раз тяжелее Солнца пролетает мимо Земли</span></button>
+                    <button class="menu-item" data-preset="chaos" type="button"><b>Хаотичный космос</b><span>Случайная звезда, планеты, 20–30 астероидов и комет</span></button>
+                    <button class="menu-item" data-preset="empty" type="button"><b>Пустой космос</b><span>Чистый холст для своей системы</span></button>
+                </div>
+            </div>
+
+            <div class="dropdown down" id="settingsDrop">
+                <button class="px-btn icon" data-drop type="button" title="Настройки" aria-label="Настройки">
+                    <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M0 1h7v1H0zM4 0h1v3H4zM0 5h7v1H0zM2 4h1v3H2z"/></svg>
+                </button>
+                <div class="drop-menu frame settings" role="menu">
+                    <div class="menu-title">ОТОБРАЖЕНИЕ</div>
+                    <label class="px-check"><input type="checkbox" id="optOrbits" checked><span>ОРБИТЫ</span></label>
+                    <label class="px-check"><input type="checkbox" id="optTrails" checked><span>СЛЕДЫ</span></label>
+                    <label class="px-check"><input type="checkbox" id="optLabels" checked><span>НАЗВАНИЯ</span></label>
+                    <label class="px-check"><input type="checkbox" id="optGrid"><span>СЕТКА ПРОСТРАНСТВА</span></label>
+                    <label class="px-check"><input type="checkbox" id="optSound" checked><span>ЗВУК</span></label>
+                    <div class="menu-title">РАЗМЕР ПИКСЕЛЯ</div>
+                    <div class="px-row">
+                        <button class="px-btn small" data-px="2" type="button">S</button>
+                        <button class="px-btn small" data-px="3" type="button">M</button>
+                        <button class="px-btn small" data-px="4" type="button">L</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="px-btn icon" id="helpBtn" type="button" title="Управление" aria-label="Управление">?</button>
+        </div>
+    </header>
+
+    <!-- ===== Боковая панель: инструменты и создание тел ===== -->
+    <nav class="toolbar frame" id="toolbar">
+        <div class="tool-title">РЕЖИМ</div>
+        <button class="px-btn tool active" data-tool="select" type="button">ВЫБОР</button>
+        <button class="px-btn tool" data-tool="compare" type="button">СРАВНИТЬ</button>
+        <div class="tool-title">СОЗДАТЬ</div>
+        <div class="cat-list" id="catList"></div>
+    </nav>
+
+    <!-- Меню выбранной категории (заполняется из s_sim.js) -->
+    <div class="drop-menu frame cat-menu" id="catMenu" hidden></div>
+
+    <!-- ===== Инспектор объекта ===== -->
+    <aside class="window frame inspector" id="inspector" hidden>
+        <div class="win-head">
+            <span>ИНСПЕКТОР</span>
+            <button class="win-close" id="inspClose" type="button" aria-label="Закрыть">X</button>
+        </div>
+        <div class="win-body">
+            <div class="insp-head">
+                <canvas class="insp-icon" id="inspIcon" width="32" height="32"></canvas>
+                <div class="insp-names">
+                    <input class="insp-name" id="inspName" maxlength="24" spellcheck="false" aria-label="Название объекта">
+                    <div class="insp-type" id="inspType"></div>
+                </div>
+            </div>
+            <p class="insp-desc" id="inspDesc"></p>
+
+            <div class="slider-row">
+                <div class="slider-top"><span>МАССА</span><b id="massVal"></b></div>
+                <input type="range" class="px-range" id="massRange" min="-12" max="8.6" step="0.01">
+            </div>
+            <div class="slider-row">
+                <div class="slider-top"><span>РАЗМЕР</span><b id="radiusVal"></b></div>
+                <input type="range" class="px-range" id="radiusRange" min="1" max="120" step="0.5">
+            </div>
+            <div class="slider-row">
+                <div class="slider-top"><span>ТЕМПЕРАТУРА</span><b id="tempVal"></b></div>
+                <input type="range" class="px-range" id="tempRange" min="1" max="6" step="0.01">
+                <div class="temp-scale"><span>ХОЛОДНО</span><span>ГОРЯЧО</span></div>
+            </div>
+
+            <dl class="facts" id="inspFacts"></dl>
+
+            <div class="insp-actions">
+                <button class="px-btn small" id="followBtn" type="button">СЛЕДИТЬ</button>
+                <button class="px-btn small" id="stopBtn" type="button">ОСТАНОВИТЬ</button>
+                <button class="px-btn small" id="engineBtn" type="button" hidden>ДВИГАТЕЛЬ</button>
+                <button class="px-btn small" id="bhBtn" type="button">В ЧЁРНУЮ ДЫРУ</button>
+                <button class="px-btn small" id="deleteBtn" type="button">УДАЛИТЬ</button>
+            </div>
+            <div class="ship-pad" id="shipPad" hidden>
+                <button class="px-btn small" data-pad="turn" data-val="-1" type="button" aria-label="Повернуть влево">
+                    <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M3 0h1v1H3zM2 1h2v1H2zM1 2h6v3H1zM0 3h1v1H0zM2 5h2v1H2zM3 6h1v1H3z"/></svg>
+                </button>
+                <button class="px-btn small" data-pad="thrust" data-val="1" type="button" aria-label="Газ">ГАЗ</button>
+                <button class="px-btn small" data-pad="thrust" data-val="-1" type="button" aria-label="Назад">НАЗАД</button>
+                <button class="px-btn small" data-pad="turn" data-val="1" type="button" aria-label="Повернуть вправо">
+                    <svg class="ico" viewBox="0 0 7 7" aria-hidden="true"><path d="M3 0h1v1H3zM3 1h2v1H3zM0 2h6v3H0zM6 3h1v1H6zM3 5h2v1H3zM3 6h1v1H3z"/></svg>
+                </button>
+            </div>
+            <p class="insp-tip" id="inspTip"></p>
+        </div>
+    </aside>
+
+    <!-- ===== Подсказки ===== -->
+    <div class="center-top">
+        <div class="pause-badge" id="pauseBadge" hidden>ПАУЗА</div>
+        <div class="mode-hint" id="modeHint"></div>
+    </div>
+
+    <!-- ===== Сообщения о событиях ===== -->
+    <div class="log" id="log" aria-live="polite"></div>
+
+    <!-- ===== Окно: сравнение ===== -->
+    <div class="modal" id="compareModal" hidden>
+        <div class="window frame modal-box">
+            <div class="win-head">
+                <span>СРАВНЕНИЕ</span>
+                <button class="win-close" data-close type="button" aria-label="Закрыть">X</button>
+            </div>
+            <div class="win-body">
+                <div class="compare-head">
+                    <div class="cmp-obj"><canvas id="cmpIcon1" width="32" height="32"></canvas><b id="cmpName1"></b></div>
+                    <span class="vs">VS</span>
+                    <div class="cmp-obj"><canvas id="cmpIcon2" width="32" height="32"></canvas><b id="cmpName2"></b></div>
+                </div>
+                <div class="compare-table" id="compareTable"></div>
+                <div class="compare-foot" id="compareFoot"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Окно: управление ===== -->
+    <div class="modal" id="helpModal" hidden>
+        <div class="window frame modal-box">
+            <div class="win-head">
+                <span>УПРАВЛЕНИЕ</span>
+                <button class="win-close" data-close type="button" aria-label="Закрыть">X</button>
+            </div>
+            <div class="win-body">
+                <dl class="help-list">
+                    <dt>Колёсико / два пальца</dt><dd>приблизить и отдалить</dd>
+                    <dt>Тянуть по пустому месту</dt><dd>двигать камеру (или правой кнопкой мыши)</dd>
+                    <dt>Клик по объекту</dt><dd>открыть инспектор</dd>
+                    <dt>Тянуть объект</dt><dd>переместить его (только на паузе)</dd>
+                    <dt>Квадратик у стрелки</dt><dd>на паузе меняет скорость объекта</dd>
+                    <dt>Создать → клик</dt><dd>объект сам встанет на круговую орбиту</dd>
+                    <dt>Создать → зажать и тянуть</dt><dd>своя скорость, пунктир покажет будущий путь</dd>
+                    <dt>Пробел</dt><dd>пауза</dd>
+                    <dt>N</dt><dd>шаг вперёд</dd>
+                    <dt>1 – 6</dt><dd>скорость времени</dd>
+                    <dt>F</dt><dd>следить за выбранным</dd>
+                    <dt>Delete</dt><dd>удалить выбранный объект</dd>
+                    <dt>W A S D / стрелки</dt><dd>управление выбранным кораблём</dd>
+                    <dt>Esc</dt><dd>снять выбор / закрыть меню</dd>
+                </dl>
+                <p class="help-note">Массы — в массах Земли (M⊕) и Солнца (M☉). Расстояния сжаты, чтобы всё помещалось на экран, а размеры тел увеличены — иначе планеты были бы меньше пикселя.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Заставка ===== -->
+    <div class="intro" id="intro">
+        <div class="intro-inner">
+            <canvas id="introPlanet" class="intro-planet" width="64" height="64"></canvas>
+            <h1 class="intro-title">SPACE<br>SIMULATOR</h1>
+            <p class="intro-sub">ГРАВИТАЦИЯ N ТЕЛ</p>
+            <button class="px-btn big" id="startBtn" type="button">НАЧАТЬ</button>
+            <p class="intro-note">Создавай звёзды, планеты и чёрные дыры — и смотри, что будет.</p>
+        </div>
+    </div>
+
+    <script src="physics.js?v=3"></script>
+    <script src="render.js?v=2"></script>
+    <script src="sound.js?v=2"></script>
+    <script src="s_sim.js?v=3"></script>
+</body>
+</html>

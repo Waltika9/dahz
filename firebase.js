@@ -84,6 +84,14 @@ const BUILTIN_PROJECTS = {
     vision: {
         title: 'Vision👁️', link: 'projects/vision/index.html',
         tag: 'vision.js', image: '', order: 5, eternal: true
+    },
+    s_sim: {
+        title: 'Space Simulator 🌏', link: 'projects/s_sim/index.html',
+        tag: 's_sim.js', image: 'images/space_prev.png', order: 6, eternal: true
+    },
+    sdesk: {
+        title: 'Short Desk', link: 'projects/sdesk/index.html',
+        tag: 'sdesk.html', image: 'images/sdesk_prev.png', order: 7, eternal: true
     }
 };
 

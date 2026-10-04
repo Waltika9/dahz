@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short Desk</title>
+    <link rel="icon" type="image/png" href="../../images/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=8">
+</head>
+<body>
+    <!-- ===== Доска ===== -->
+    <main id="board" class="board">
+        <div id="world" class="world">
+            <svg id="links" class="links" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div id="tiles" class="tiles-layer"></div>
+            <div id="items" class="items-layer"></div>
+        </div>
+        <div id="selRect" class="sel-rect"></div>
+    </main>
+
+    <div id="emptyState" class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="5"/><path d="M12 8.5v7M8.5 12h7"/></svg></div>
+        <b>Доска пуста</b>
+        <span>Нажмите «+» внизу, чтобы добавить первую плитку</span>
+    </div>
+
+    <!-- ===== Плашка выполнения (видна только пока программа работает) ===== -->
+    <div id="runPill" class="run-pill glass">
+        <span class="rp-dot"></span>
+        <span id="runText" class="rp-text">Выполняется</span>
+        <span id="runSteps" class="rp-steps"></span>
+        <button id="runStop" class="rp-stop" type="button" title="Остановить" aria-label="Остановить">
+            <svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.6" fill="currentColor"/></svg>
+        </button>
+    </div>
+
+    <!-- ===== Нижняя панель ===== -->
+    <nav id="dock" class="dock glass">
+        <button id="homeBtn" class="dock-home" type="button" aria-label="На главную" title="На главную">
+            <img src="../../images/back.png" alt="">
+        </button>
+        <div class="dock-map" title="Миникарта: клик — перейти, колесо — приблизить или отдалить доску">
+            <canvas id="minimap"></canvas>
+        </div>
+        <div id="plusSlot" class="plus-slot">
+            <button id="plusBtn" class="plus-btn" type="button" aria-label="Добавить" title="Добавить">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+        </div>
+        <div id="strip" class="strip">
+            <span id="stripEmpty" class="strip-empty">Здесь появятся плитки</span>
+        </div>
+    </nav>
+
+    <!-- ===== Окно добавления ===== -->
+    <div id="sheetBackdrop" class="sheet-backdrop"></div>
+    <section id="sheet" class="sheet glass" aria-label="Добавить">
+        <header class="sheet-head">
+            <label class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg>
+                <input id="searchInput" type="text" placeholder="Поиск плиток и действий" autocomplete="off" spellcheck="false">
+            </label>
+            <button id="sheetSave" class="pill-btn" type="button" title="Сохранить доску">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+                <span>Сохранить</span>
+            </button>
+            <button id="sheetLoad" class="pill-btn" type="button" title="Загрузить код">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>
+                <span>Загрузить код</span>
+            </button>
+            <button id="sheetClose" class="round-btn" type="button" aria-label="Закрыть">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>
+            </button>
+        </header>
+        <div class="sheet-body">
+            <nav id="catNav" class="cat-nav"></nav>
+            <div id="catalog" class="catalog"></div>
+        </div>
+    </section>
+
+    <!-- ===== Окно «Отпустите, чтобы загрузить файл» ===== -->
+    <div id="dropOverlay" class="drop-overlay">
+        <div class="drop-frame">
+            <div class="drop-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+            </div>
+            <b>Отпустите, чтобы загрузить файл</b>
+            <span>Доски .tiles откроются рядом, остальные файлы станут плитками</span>
+        </div>
+    </div>
+
+    <script src="ui.js?v=7"></script>
+    <script src="nodes.js?v=7"></script>
+    <script src="web.js?v=1"></script>
+    <script src="board.js?v=8"></script>
+    <script src="engine.js?v=5"></script>
+    <script src="storage.js?v=4"></script>
+    <script src="snapshot.js?v=5"></script>
+    <script src="menus.js?v=8"></script>
+    <script src="palette.js?v=5"></script>
+    <script src="dock.js?v=5"></script>
+    <script src="app.js?v=8"></script>
+</body>
+</html>
