@@ -8,10 +8,17 @@
    <link rel="icon" type="image/png" href="images/favicon.png">
     
     <title>Мои Проекты и ДЗ</title>
+    <!-- Выбранная тема ставится до загрузки стилей — чтобы страница не мигала классической -->
+    <script>
+        try {
+            const t = localStorage.getItem('dahz_theme');
+            if (t && t !== 'classic') document.documentElement.dataset.theme = t;
+        } catch (e) { /* приватный режим — просто классическая тема */ }
+    </script>
     <!-- Подключаем внешние стили -->
     <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
          иначе браузер может до 10 минут брать старую копию из кэша -->
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body class="projects-loading">
 
@@ -24,8 +31,10 @@
 
     <!-- Шапка -->
     <header>
-        <div class="welcome-text">
-            Добро пожаловать, тут я хочу собирать все проекты... By Waltika
+        <!-- Приветствие: внутри играет радужная пиксельная анимация (клик — ещё раз) -->
+        <div class="welcome-text" id="welcomeText" role="button" tabindex="0" title="Нажмите, чтобы увидеть радугу ещё раз">
+            <canvas class="welcome-rainbow" id="welcomeRainbow" aria-hidden="true"></canvas>
+            <span class="welcome-label">Добро пожаловать, тут я хочу собирать все проекты... By Waltika</span>
         </div>
         <button class="btn" id="loginBtn">Войти/Зарегистрироваться</button>
     </header>
@@ -34,15 +43,17 @@
     <div class="sub-nav">
         <div class="section-title">Все проекты:</div>
         <div class="nav-actions">
-            <!-- Поиск: по кнопке-лупе выезжает поле -->
-            <div class="search-box" id="searchBox">
-                <input class="search-input" id="searchInput" type="search" placeholder="Поиск проектов..." aria-label="Поиск проектов" autocomplete="off">
-                <button class="btn search-btn" id="searchBtn" type="button" aria-label="Поиск проектов">
-                    <img src="images/find.png" alt="" onerror="this.replaceWith('🔍')">
-                </button>
-            </div>
             <button class="btn" id="openCompilerBtn">Открыть компилятор</button>
         </div>
+    </div>
+
+    <!-- Поиск на всю строку (всегда открыт) и кнопка смены темы -->
+    <div class="search-row">
+        <label class="search-field">
+            <span class="search-icon"><img src="images/find.png" alt="" onerror="this.replaceWith('🔍')"></span>
+            <input class="search-input" id="searchInput" type="search" placeholder="Поиск проектов..." aria-label="Поиск проектов" autocomplete="off">
+        </label>
+        <button class="btn theme-btn" id="themeBtn" type="button" aria-label="Сменить тему сайта">🎨 Тема</button>
     </div>
 
     <!-- Панель аккаунта (появляется после входа) -->
@@ -112,6 +123,15 @@
                 <a href="compilers/pycomp.html" class="modal-btn">Открыть компилятор python</a>
                 <a href="compilers/htmlcomp.html" class="modal-btn">Открыть компилятор html</a>
             </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно выбора темы (варианты рисует script.js) -->
+    <div id="themeModal" class="modal-overlay">
+        <div class="modal-window theme-window">
+            <button class="modal-close" id="closeThemeBtn" type="button">×</button>
+            <h3 class="modal-title">Тема сайта</h3>
+            <div class="theme-grid" id="themeGrid"></div>
         </div>
     </div>
 
@@ -246,7 +266,7 @@
     </div>
 
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
-    <script src="script.js?v=6"></script>
+    <script src="script.js?v=11"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
     <script type="module" src="firebase.js?v=14"></script>
 </body>
