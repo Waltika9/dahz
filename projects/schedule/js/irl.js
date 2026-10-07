@@ -87,14 +87,14 @@ function describe(s) {
     const n = s.next;
     v.next = { title: '', subject: '', sub: '' };
     if (n.type === 'break') {
-        v.next.title = `Потом ${n.item.gap ? 'окно' : 'перемена'}, ${n.item.duration} мин`;
+        v.next.title = `${n.item.gap ? 'Окно' : 'Перемена'}, ${n.item.duration} мин`;
         v.next.sub = `${formatMinutes(n.item.start)} – ${formatMinutes(n.item.end)}`;
     } else if (n.type === 'end') {
-        v.next.title = 'Потом уроки закончатся';
+        v.next.title = 'Уроки закончатся';
         v.next.sub = 'это последний урок на сегодня';
     } else if (n.type === 'lesson') {
         const l = n.item;
-        v.next.title = `Потом ${lessonTitle(l).replace('Урок', 'урок')}, длится ${l.duration} мин`;
+        v.next.title = `${lessonTitle(l)}, длится ${l.duration} мин`;
         v.next.subject = subjectName(l);
         const time = formatMinutes(l.start);
         v.next.sub = n.daysAhead === 0 ? `${time} – ${formatMinutes(l.end)}`
