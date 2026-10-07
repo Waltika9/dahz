@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <!-- viewport-fit=cover — страница занимает весь экран iPhone, отступы под «чёлку» даёт CSS (env(safe-area-inset-*)) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f8fafc">
+    <title>IRL расписание</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=1">
+
+    <!-- Приложение на экране «Домой» (PWA): manifest, иконки, полноэкранный режим на iPhone -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="IRL">
+
+    <!-- Пиксельный шрифт Tiny5 лежит в assets/fonts и подключается в css/style.css -->
+
+    <!-- ?v=N — версия файла: меняйте число при каждом изменении, иначе GitHub Pages до 10 минут отдаёт старую копию -->
+    <link rel="stylesheet" href="css/style.css?v=7">
+</head>
+<body>
+
+    <!-- Шапка: кнопка на главную и вкладки. Активная вкладка заливается чёрным ступеньками -->
+    <header class="top">
+        <div class="top-inner">
+            <a class="home-btn" href="../../index.html" aria-label="На главную страницу сайта" title="На главную">
+                <span data-icon="home"></span>
+            </a>
+            <nav class="tabs" id="tabs" role="tablist" aria-label="Разделы">
+                <button class="tab" type="button" role="tab" id="tabbtn-irl" aria-controls="tab-irl" data-tab="irl">
+                    <span data-icon="clock"></span><span>IRL</span>
+                </button>
+                <button class="tab" type="button" role="tab" id="tabbtn-schedule" aria-controls="tab-schedule" data-tab="schedule">
+                    <span data-icon="calendar"></span><span>Расписание</span>
+                </button>
+                <button class="tab" type="button" role="tab" id="tabbtn-settings" aria-controls="tab-settings" data-tab="settings">
+                    <span data-icon="gear"></span><span>Настройки</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- ===== IRL: что идёт сейчас и что дальше (js/irl.js) ===== -->
+        <section class="tab-panel" id="tab-irl" role="tabpanel" aria-labelledby="tabbtn-irl">
+            <!-- Дата и часы с секундами -->
+            <div class="card clock-card">
+                <div class="clock-date" id="irlDate"></div>
+                <div class="clock-time" id="irlTime" aria-live="off"></div>
+                <span class="fake-badge" id="fakeBadge" hidden>тест-время</span>
+            </div>
+
+            <!-- «Сейчас»: цвет зависит от состояния (классы phase-*), анимации — js/fx.js
+                 (он же добавляет сюда холст с частицами и атрибут data-fx).
+                 Во внеурочное время на блоке спит собака (js/night.js), слева — кнопка музыки -->
+            <section class="card now-card" id="nowCard">
+                <header class="block-head">
+                    <button class="sound-btn" id="soundBtn" type="button" aria-pressed="false" aria-label="Музыка" title="Музыка" hidden></button>
+                    <!-- следующий трек (видна, пока музыка включена) -->
+                    <button class="sound-btn skip-btn" id="skipBtn" type="button" aria-label="Следующий трек" title="Следующий трек" hidden></button>
+                    <h2 class="block-label">Сейчас</h2>
+                    <span class="phase-badge" id="nowBadge"></span>
+                </header>
+                <div class="now-body">
+                    <!-- Пиксельные часы 44×44 (js/dial.js) -->
+                    <canvas class="now-dial" id="nowDial" width="44" height="44" aria-hidden="true"></canvas>
+                    <div class="now-text">
+                        <div class="now-title" id="nowTitle">Загружаю расписание<span class="dots"></span></div>
+                        <div class="now-subject" id="nowSubject" hidden></div>
+                        <div class="now-status" id="nowStatus" hidden></div>
+                        <div class="now-sub" id="nowSub" hidden></div>
+                        <!-- на перемене: какой урок дальше и в каком кабинете -->
+                        <div class="now-after" id="nowNext" hidden></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- «Дальше» -->
+            <section class="card next-card">
+                <header class="block-head">
+                    <h2 class="block-label">Дальше</h2>
+                </header>
+                <div class="next-body">
+                    <div class="next-title" id="nextTitle">…</div>
+                    <div class="next-subject" id="nextSubject" hidden></div>
+                    <div class="next-sub" id="nextSub" hidden></div>
+                </div>
+            </section>
+        </section>
+
+        <!-- ===== Расписание на всю неделю ===== -->
+        <section class="tab-panel" id="tab-schedule" role="tabpanel" aria-labelledby="tabbtn-schedule" hidden>
+            <div class="panel-head">
+                <h1 class="panel-title">Расписание</h1>
+                <span class="class-badge" id="classBadge" hidden></span>
+            </div>
+            <!-- Заполняется из data/schedule.json (js/schedule.js) -->
+            <div id="scheduleRoot">
+                <div class="card loading-card">Загружаю расписание<span class="dots"></span></div>
+            </div>
+        </section>
+
+        <!-- ===== Настройки ===== -->
+        <section class="tab-panel" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
+            <div class="panel-head">
+                <h1 class="panel-title">Настройки</h1>
+            </div>
+
+            <!-- Как добавить на экран «Домой» (js/pwa.js прячет шаги, если уже добавлено) -->
+            <div class="card setting install-card">
+                <div class="setting-text">
+                    <h2 class="setting-title">На экран «Домой»</h2>
+                    <p class="setting-hint">Так сайт открывается как приложение: без адресной строки, работает без интернета, и можно включить уведомления.</p>
+                    <p class="setting-hint" id="installHint" hidden></p>
+                    <ol class="steps" id="installSteps">
+                        <li><span class="step-num">1</span><span data-icon="compass"></span><span>Откройте этот сайт в <b>Safari</b></span></li>
+                        <li><span class="step-num">2</span><span data-icon="share"></span><span>Нажмите <b>«Поделиться»</b> внизу экрана</span></li>
+                        <li><span class="step-num">3</span><span data-icon="addsq"></span><span>Выберите <b>«На экран „Домой“»</b></span></li>
+                        <li><span class="step-num">4</span><span data-icon="check"></span><span>Нажмите <b>«Добавить»</b> и откройте IRL с экрана</span></li>
+                    </ol>
+                    <p class="install-done" id="installDone" hidden><span data-icon="check"></span><span>Готово: сайт открыт с экрана «Домой»</span></p>
+                </div>
+            </div>
+
+            <!-- Уведомления (js/notify.js) -->
+            <div class="card setting notify-card">
+                <div class="setting-row">
+                    <div class="setting-text">
+                        <h2 class="setting-title">Уведомления</h2>
+                        <p class="setting-hint">О начале и конце уроков и перемен.</p>
+                    </div>
+                    <button class="switch" id="notifySwitch" type="button" role="switch" aria-checked="false" aria-label="Уведомления">
+                        <span class="switch-knob"></span>
+                    </button>
+                </div>
+                <!-- Под-настройки появляются, когда уведомления включены -->
+                <div class="sub-settings" id="notifyOptions" hidden>
+                    <div id="notifyEvents"></div>
+                    <button class="btn" id="notifyTest" type="button">Проверить уведомление</button>
+                </div>
+                <p class="setting-note" id="notifyNote"></p>
+            </div>
+
+            <!-- Режим тестировки (js/tester.js) -->
+            <div class="card setting">
+                <div class="setting-text">
+                    <h2 class="setting-title">Режим тестировки</h2>
+                    <p class="setting-hint">Предметы называются «Урок-1», «Урок-2»… Внизу появляется панель сценариев: она подменяет время, чтобы посмотреть любое состояние.</p>
+                </div>
+                <button class="switch" id="testerSwitch" type="button" role="switch" aria-checked="false" aria-label="Режим тестировки">
+                    <span class="switch-knob"></span>
+                </button>
+            </div>
+
+            <!-- Громкость музыки (js/audio.js, хранится в localStorage) -->
+            <div class="card setting setting-volume">
+                <div class="setting-text">
+                    <h2 class="setting-title">Громкость музыки</h2>
+                    <p class="setting-hint">Музыка играет во внеурочное время. Включается кнопкой с динамиком на блоке «Сейчас».</p>
+                    <div class="volume-row">
+                        <input class="volume" id="volumeInput" type="range" min="0" max="100" step="5" aria-label="Громкость музыки">
+                        <span class="volume-value" id="volumeValue"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Панель сценариев режима тестировки: видна на всех вкладках, пока режим включён -->
+    <div class="tester-dock" id="testerDock" hidden>
+        <div class="dock-inner">
+            <div class="dock-head">
+                <span class="dock-tag">Тест</span>
+                <span class="dock-time" id="testerTime">настоящее время</span>
+                <button class="btn dock-reset" id="testerReset" type="button"><span>Сбросить</span><small>на реальное время</small></button>
+            </div>
+            <div class="dock-chips" id="testerChips" aria-label="Сценарии"></div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js?v=7"></script>
+</body>
+</html>

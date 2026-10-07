@@ -1,0 +1,1093 @@
+/* ===== IRL расписание =====
+   Стиль главной страницы сайта: светлый фон, белые блоки с толстой чёрной рамкой
+   и жёсткой смещённой тенью — плюс пиксельный шрифт и пиксельные иконки.
+   Анимации ступенчатые (steps) — как в Beatblock: резко, но ровно.
+
+   Шрифт Tiny5 пиксельный и бывает только обычной толщины, поэтому жирный
+   не подделываем (font-synthesis: none), а выделяем размером, цветом и рамками.
+   Размеры шрифта — кратные 4px (16, 20, 24, 32): так пиксели букв ровные. */
+
+/* Шрифт лежит в самом проекте (assets/fonts, лицензия OFL — там же), а не грузится с Google:
+   так он есть и без интернета, и когда index.html открыт просто как файл.
+   Два файла: кириллица и латиница — браузер скачивает только нужный. */
+@font-face {
+    font-family: 'Tiny5';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../assets/fonts/tiny5-cyrillic.woff2') format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: 'Tiny5';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../assets/fonts/tiny5-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --ink: #000000;          /* рамки, тени, линии */
+    --text: #0f172a;
+    --muted: #64748b;
+    --line: #cbd5e1;         /* пунктир перемен, точки фона */
+
+    --green: #bbf7d0;        /* урок или перемена идёт сейчас */
+    --green-ink: #15803d;
+    --yellow: #fef08a;       /* сегодняшний день */
+    --blue: #bfdbfe;         /* следующий учебный день */
+    --red: #fca5a5;
+
+    --bw: 3px;
+    --shadow: 4px 4px 0 var(--ink);
+    --shadow-sm: 3px 3px 0 var(--ink);
+    --shadow-press: 1px 1px 0 var(--ink);
+
+    --on-ink: #ffffff;       /* текст на чёрной заливке (активная вкладка, плашки) */
+
+    --font: 'Tiny5', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --top-h: 90px;           /* высота шапки с вкладками (точное значение ставит app.js) */
+
+    color-scheme: light;
+}
+
+/* ===== Домашний режим (внеурочное время, вкладка IRL) =====
+   Тёмно-синяя ночь: линии и рамки белые, блоки тёмные. Класс night ставит js/night.js.
+   Тени заново: они собраны из --ink в :root и сами не перекрасятся. */
+body.night {
+    --bg: #0b1533;
+    --card: #13224a;
+    --ink: #ffffff;
+    --text: #f1f5ff;
+    --muted: #9fb2dc;
+    --line: #2c3f73;
+    --on-ink: #0b1533;
+    --shadow: 4px 4px 0 #02061a;
+    --shadow-sm: 3px 3px 0 #02061a;
+    --shadow-press: 1px 1px 0 #02061a;
+    color-scheme: dark;
+    background-image: none;
+}
+
+* { box-sizing: border-box; }
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--bg);
+    /* мелкая пиксельная сетка из точек 2×2 */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='2' height='2' fill='%23dbe3ec'/%3E%3C/svg%3E");
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 400;
+    font-synthesis: none;
+    line-height: 1.25;
+    -webkit-tap-highlight-color: transparent;
+    /* день ↔ ночь меняются рывками в 4 шага */
+    transition: background-color 0.4s steps(4, end), color 0.4s steps(4, end);
+}
+
+.top,
+.card,
+.tab,
+.home-btn,
+.btn,
+.tester-dock {
+    transition-property: background-color, border-color, color, box-shadow;
+    transition-duration: 0.4s;
+    transition-timing-function: steps(4, end);
+}
+
+button { font: inherit; color: inherit; }
+
+h1, h2, p { margin: 0; font-weight: 400; }
+
+b { font-weight: 400; }
+
+[hidden] { display: none !important; }
+
+/* Пиксельные иконки (js/pixel.js) */
+.px-icon {
+    display: block;
+    width: 22px;
+    height: 22px;
+    flex: none;
+}
+
+/* ===== Шапка с вкладками ===== */
+.top {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+    background: var(--bg);
+}
+
+.top-inner {
+    display: flex;
+    gap: 8px;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+/* Кнопка «на главную» — квадрат слева от вкладок */
+.home-btn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    touch-action: manipulation;
+}
+
+.home-btn:active { transform: translate(3px, 3px); box-shadow: var(--shadow-press); }
+
+.home-btn:focus-visible {
+    outline: 3px dashed var(--ink);
+    outline-offset: 4px;
+}
+
+.tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    flex: 1;
+    min-width: 0;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+}
+
+/* Каждая вкладка заливается чёрным сама (фон-полоса растёт ступеньками).
+   Сторону, откуда идёт заливка, задаёт app.js — так кажется, что плашка переезжает.
+   Заливка — фон самой кнопки, поэтому у краёв не бывает щелей в долю пикселя. */
+.tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 7px 2px 6px;
+    border: 0;
+    background: linear-gradient(var(--ink), var(--ink)) no-repeat left center / 0% 100%;
+    font-size: 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-size 0.2s steps(4, end), color 0.2s steps(2, end);
+}
+
+.tab[aria-selected="true"] { background-size: 100% 100%; }
+
+.tab + .tab { border-left: var(--bw) solid var(--ink); }
+
+.tab span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab[aria-selected="true"] { color: var(--on-ink); }
+
+.tab:focus-visible {
+    outline: 3px dashed var(--ink);
+    outline-offset: 4px;
+}
+
+/* ===== Содержимое ===== */
+main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 8px max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+/* Вкладка появляется рывком в 3 шага */
+.tab-panel { animation: panel-in 0.24s steps(3, end) both; }
+
+@keyframes panel-in {
+    from { opacity: 0; transform: translateY(12px); }
+}
+
+.card {
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    font-size: 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.btn:active { transform: translate(2px, 2px); box-shadow: var(--shadow-press); }
+
+/* Заголовок вкладки */
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 6px 0 16px;
+}
+
+.panel-title {
+    font-size: 32px;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.class-badge {
+    padding: 2px 8px;
+    border: var(--bw) solid var(--ink);
+    background: var(--yellow);
+    box-shadow: var(--shadow-sm);
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+/* ===== Вкладка IRL ===== */
+
+/* Дата и часы */
+.clock-card {
+    position: relative;
+    margin-bottom: 16px;
+    padding: 12px 14px 10px;
+}
+
+.clock-date {
+    color: var(--muted);
+    font-size: 20px;
+}
+
+.clock-time {
+    display: flex;
+    font-size: 48px;
+    line-height: 1.05;
+}
+
+.clock-time .digit { width: 0.5em; text-align: center; }
+.clock-time .colon { width: 0.25em; text-align: center; }
+
+.fake-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 2px 6px;
+    border: 2px solid var(--ink);
+    background: var(--red);
+    color: #0f172a;
+    text-transform: uppercase;
+}
+
+/* Шапка блоков «Сейчас» и «Дальше» */
+.block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px 7px;
+    border-bottom: var(--bw) solid var(--ink);
+}
+
+.block-label {
+    font-size: 20px;
+    text-transform: uppercase;
+}
+
+.phase-badge {
+    padding: 3px 8px 2px;
+    background: var(--ink);
+    color: var(--on-ink);
+    text-transform: uppercase;
+}
+
+/* «Сейчас» */
+.now-card {
+    position: relative;     /* внутри — холст эффектов */
+    margin-top: 0;
+    margin-bottom: 16px;
+    transition-property: background-color, border-color, color, box-shadow, margin-top;
+}
+
+/* Дома блок немного опускается — сверху на нём спит собака */
+body.night .now-card { margin-top: 64px; }
+
+/* Спящая собака (js/night.js): холст 30×34 → 90×102, лежит на верхней рамке справа */
+.night-dog {
+    display: none;
+    position: absolute;
+    right: 8px;
+    bottom: calc(100% + var(--bw));
+    z-index: 2;
+    width: 90px;
+    height: 102px;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+body.night .night-dog { display: block; }
+
+/* Кнопка музыки — в левом углу блока (только дома) */
+.sound-btn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 32px;
+    margin: -2px 0 -2px -4px;
+    padding: 0;
+    border: 2px solid var(--ink);
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.sound-btn:active { transform: translate(1px, 1px); }
+.sound-btn[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+
+/* пока музыка играет, динамик подпрыгивает в такт (1 удар в секунду) */
+.sound-btn.playing .px-icon { animation: sound-hop 1s steps(1, end) infinite; }
+
+@keyframes sound-hop {
+    0%  { transform: translateY(-2px); }
+    25% { transform: none; }
+}
+
+/* «Следующий трек» — вплотную к динамику */
+.skip-btn { margin-left: -6px; }
+
+.now-card .block-label { margin-right: auto; }
+
+/* Текст блока — поверх холста с градиентом и частицами */
+.now-card > .block-head,
+.now-card > .now-body {
+    position: relative;
+    z-index: 1;
+}
+
+/* Холст эффектов (js/fx.js): больше блока, поэтому частицы и кольца вылетают наружу.
+   Размер и положение задаёт скрипт. */
+.now-fx {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    image-rendering: pixelated;
+}
+
+.now-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 12px;
+}
+
+/* Слева пиксельные часы: холст 44×44 → 88×88 на экране (js/dial.js) */
+.now-dial {
+    flex: none;
+    width: 88px;
+    height: 88px;
+    image-rendering: pixelated;
+}
+
+.now-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.now-title { font-size: 24px; line-height: 1.1; }
+.now-subject { font-size: 20px; overflow-wrap: anywhere; }
+.now-status { font-size: 20px; }
+.now-sub { color: var(--muted); }
+
+/* На перемене в самом низу — какой урок дальше (отделён пунктиром) */
+.now-after {
+    margin-top: 4px;
+    padding-top: 5px;
+    border-top: 2px dashed var(--ink);
+    font-size: 20px;
+    overflow-wrap: anywhere;
+}
+
+/* Цвета состояний. На уроке блок белый (спокойно), перемена — зелёная */
+.now-card.phase-break { background: var(--green); }
+.now-card.phase-break .now-sub { color: var(--text); }
+
+/* Запасное мигание, если анимации в системе отключены (иначе работает js/fx.js).
+   За 5 минут до конца — мигает зелёным: раз в секунду, в такт часам */
+.now-card.is-ending { animation: blink-green 1s steps(1, end) infinite; }
+
+@keyframes blink-green {
+    0%  { background-color: var(--green); }
+    50% { background-color: var(--card); }
+}
+
+/* За 2 минуты до урока — мигает красным */
+.now-card.phase-soon {
+    background: var(--red);
+    animation: blink-red 1s steps(1, end) infinite;
+}
+
+.now-card.phase-soon .phase-badge { background: #dc2626; }
+.now-card.phase-soon .now-sub { color: var(--text); }
+
+@keyframes blink-red {
+    0%  { background-color: var(--red); }
+    50% { background-color: var(--card); }
+}
+
+.now-card.phase-error .phase-badge { background: #dc2626; }
+
+/* Когда работают эффекты (data-fx ставит fx.js), мигание выше не нужно:
+   цвет переливается пиксельным градиентом на холсте. Фон — самый светлый цвет палитры. */
+.now-card[data-fx] { animation: none; }
+.now-card[data-fx="ending"] { background: #dcfce7; }
+.now-card[data-fx="soon"] { background: #fee2e2; }
+.now-card[data-fx] .now-sub { color: var(--text); }
+
+/* На пёстром фоне у текста белая пиксельная обводка (без размытия) — читается всегда */
+.now-card[data-fx] .block-label,
+.now-card[data-fx] .now-text {
+    text-shadow: 2px 0 #ffffff, -2px 0 #ffffff, 0 2px #ffffff, 0 -2px #ffffff,
+                 2px 2px #ffffff, -2px -2px #ffffff, 2px -2px #ffffff, -2px 2px #ffffff;
+}
+
+/* «Дальше» */
+.next-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px;
+}
+
+.next-title { font-size: 20px; }
+.next-subject { font-size: 20px; color: var(--muted); overflow-wrap: anywhere; }
+.next-sub { color: var(--muted); }
+
+/* ===== Настройки ===== */
+.setting {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 14px 12px;
+}
+
+.setting-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.setting-title { font-size: 20px; }
+.setting-hint { color: var(--muted); }
+
+/* Пиксельный переключатель: квадратик перепрыгивает в 3 шага */
+.switch {
+    position: relative;
+    flex: none;
+    width: 60px;
+    height: 32px;
+    padding: 0;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color 0.16s steps(2, end);
+}
+
+.switch-knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: var(--ink);
+    transition: transform 0.16s steps(3, end);
+}
+
+.switch[aria-checked="true"] { background: var(--green); }
+.switch[aria-checked="true"] .switch-knob { transform: translateX(28px); }
+.switch:active { transform: translate(2px, 2px); box-shadow: var(--shadow-press); }
+
+.switch:focus-visible {
+    outline: 3px dashed var(--ink);
+    outline-offset: 4px;
+}
+
+/* Заглушки будущих настроек */
+.stub-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-style: dashed;
+    box-shadow: none;
+    color: var(--muted);
+}
+
+/* ===== Панель режима тестировки (внизу экрана) ===== */
+.tester-dock {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    padding: 10px max(16px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    border-top: var(--bw) solid var(--ink);
+    background: var(--bg);
+}
+
+body.tester-on main { padding-bottom: calc(var(--dock-h, 140px) + 24px); }
+
+.dock-inner {
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.dock-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dock-tag {
+    padding: 3px 6px 2px;
+    background: var(--ink);
+    color: var(--on-ink);
+    text-transform: uppercase;
+}
+
+.dock-time {
+    flex: 1;
+    min-width: 0;
+}
+
+.dock-reset {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 4px 10px;
+    line-height: 1.1;
+}
+
+.dock-reset small { color: var(--muted); font-size: 16px; }
+.dock-reset:disabled { opacity: 0.4; cursor: default; }
+.dock-reset:disabled:active { transform: none; box-shadow: var(--shadow-sm); }
+
+/* Сценарии — в одну строку, листаются пальцем вбок */
+.dock-chips {
+    display: flex;
+    gap: 8px;
+    margin: 0 -4px;
+    padding: 10px 4px 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.dock-chips::-webkit-scrollbar { display: none; }
+
+.dock-chip {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 5px 10px 4px;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    line-height: 1.15;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.dock-chip span { font-size: 20px; }
+.dock-chip small { color: var(--muted); font-size: 16px; }
+.dock-chip:active { transform: translate(2px, 2px); box-shadow: var(--shadow-press); }
+.dock-chip.active { background: var(--ink); color: var(--on-ink); }
+.dock-chip.active small { color: var(--line); }
+
+/* ===== Загрузка и ошибка ===== */
+.loading-card {
+    padding: 20px;
+    text-align: center;
+    font-size: 20px;
+}
+
+.dots::after {
+    content: '';
+    animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+}
+
+.error-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: #fee2e2;
+    font-size: 20px;
+}
+
+/* ===== Вкладка «Расписание» ===== */
+.day-chips {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.day-chip {
+    padding: 6px 0;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    font-size: 20px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.day-chip:active { transform: translate(2px, 2px); box-shadow: var(--shadow-press); }
+.day-chip.is-today { background: var(--yellow); }
+.day-chip.is-next { background: var(--blue); }
+
+.sched-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: var(--bw) dashed var(--ink);
+    background: var(--card);
+}
+
+.day-card {
+    margin-bottom: 18px;
+    scroll-margin-top: calc(var(--top-h) + 8px);
+}
+
+.day-head {
+    padding: 10px 12px 9px;
+    border-bottom: var(--bw) solid var(--ink);
+}
+
+.day-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.day-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 24px;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.day-badge:empty { display: none; }
+
+.day-badge {
+    padding: 3px 8px 2px;
+    background: var(--ink);
+    color: #ffffff;
+    text-transform: uppercase;
+}
+
+.day-meta {
+    margin-top: 4px;
+    color: var(--muted);
+}
+
+.day-card.is-today { box-shadow: 6px 6px 0 var(--ink); }
+.day-card.is-today .day-head { background: var(--yellow); }
+.day-card.is-next .day-head { background: var(--blue); }
+.day-card.is-today .day-meta,
+.day-card.is-next .day-meta { color: var(--text); }
+
+.day-list,
+.bell-list {
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+}
+
+/* Строка урока: номер | предмет и время | кабинет */
+.lesson {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+}
+
+.l-num {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--ink);
+    font-size: 20px;
+    line-height: 1;
+}
+
+.l-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.l-subj {
+    font-size: 20px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+}
+
+.lesson.is-extra .l-subj { font-style: italic; }
+
+.l-dur { color: var(--muted); }
+
+.l-room {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 36px;
+    line-height: 1;
+}
+
+.l-room small {
+    color: var(--muted);
+    font-size: 16px;
+}
+
+.l-room b { font-size: 24px; }
+
+/* Перемена — пунктир с подписью посередине */
+.break {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 1px 12px;
+    color: var(--muted);
+}
+
+.break::before,
+.break::after {
+    content: '';
+    flex: 1;
+    border-top: 2px dashed var(--line);
+}
+
+.break.is-gap { color: var(--text); }
+
+/* Сегодня: прошедшее бледнее, текущее — зелёное */
+.lesson.is-past,
+.break.is-past { opacity: 0.4; }
+
+.lesson.is-now {
+    margin: 2px 6px;
+    padding: 6px;
+    border: 2px solid var(--ink);
+    background: var(--green);
+}
+
+.lesson.is-now .l-num { background: var(--ink); color: #ffffff; }
+.lesson.is-now .l-dur { color: var(--text); }
+.lesson.is-now .l-main::after { content: 'идёт сейчас'; color: var(--green-ink); }
+
+.break.is-now {
+    margin: 2px 6px;
+    padding: 4px 6px;
+    border: 2px solid var(--ink);
+    background: var(--green);
+    color: var(--text);
+}
+
+.break.is-now::before,
+.break.is-now::after { border-top-color: var(--ink); }
+.break.is-now span::after { content: ' · сейчас'; color: var(--green-ink); }
+
+/* Звонки */
+.bells-card .px-icon { width: 22px; height: 22px; }
+
+.bell-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    column-gap: 10px;
+    padding: 7px 12px;
+}
+
+.bell-row + .bell-row { border-top: 2px dashed var(--line); }
+.bell-time { font-size: 20px; }
+.bell-dur { color: var(--muted); }
+
+.bell-break {
+    grid-column: 2 / -1;
+    color: var(--muted);
+}
+
+.bell-break:empty { display: none; }
+
+/* ===== На экран «Домой»: пиксельные шаги ===== */
+.install-card .setting-text { gap: 8px; }
+
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.steps li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 2px solid var(--ink);
+    background: var(--bg);
+}
+
+.steps b { font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
+
+.step-num {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--ink);
+    background: var(--card);
+    font-size: 20px;
+}
+
+/* шаги по очереди подсвечиваются раз в секунду — видно, в каком порядке нажимать */
+.step-num { animation: step-hl 4s steps(1, end) infinite; }
+.steps li:nth-child(2) .step-num { animation-delay: 1s; }
+.steps li:nth-child(3) .step-num { animation-delay: 2s; }
+.steps li:nth-child(4) .step-num { animation-delay: 3s; }
+
+@keyframes step-hl {
+    0%  { background: var(--yellow); color: #0f172a; transform: translateY(-2px); }
+    25% { background: var(--card); color: inherit; transform: none; }
+}
+
+.install-done {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 2px solid var(--ink);
+    background: var(--green);
+    color: #0f172a;
+}
+
+/* ===== Уведомления ===== */
+.notify-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.sub-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--ink);
+}
+
+.sub-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+}
+
+.sub-settings .btn { align-self: flex-start; }
+
+/* маленький переключатель: 48×26, квадратик прыгает на 22px */
+.switch-sm { width: 48px; height: 26px; }
+.switch-sm .switch-knob { width: 14px; height: 14px; }
+.switch-sm[aria-checked="true"] .switch-knob { transform: translateX(22px); }
+
+.setting-note {
+    padding: 8px 10px;
+    border: 2px dashed var(--ink);
+    color: var(--muted);
+}
+
+/* ===== Громкость музыки ===== */
+.setting-volume .setting-text { gap: 6px; }
+
+.volume-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.volume-value {
+    min-width: 48px;
+    font-size: 20px;
+    text-align: right;
+}
+
+/* Пиксельный ползунок: дорожка-рамка с чёрной заливкой до бегунка, бегунок — квадрат */
+.volume {
+    --fill: 60%;
+    flex: 1;
+    height: 28px;
+    margin: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    touch-action: pan-y;
+}
+
+.volume::-webkit-slider-runnable-track {
+    height: 16px;
+    border: var(--bw) solid var(--ink);
+    background: linear-gradient(var(--ink), var(--ink)) no-repeat left / var(--fill) 100%, var(--card);
+}
+
+.volume::-moz-range-track {
+    height: 10px;
+    border: var(--bw) solid var(--ink);
+    background: linear-gradient(var(--ink), var(--ink)) no-repeat left / var(--fill) 100%, var(--card);
+}
+
+.volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px;
+    height: 28px;
+    margin-top: -9px;
+    border: var(--bw) solid var(--ink);
+    background: var(--yellow);
+    box-shadow: var(--shadow-sm);
+}
+
+.volume::-moz-range-thumb {
+    width: 16px;
+    height: 22px;
+    border: var(--bw) solid var(--ink);
+    border-radius: 0;
+    background: var(--yellow);
+    box-shadow: var(--shadow-sm);
+}
+
+.volume:focus-visible { outline: 3px dashed var(--ink); outline-offset: 4px; }
+
+/* ===== Домашний режим: звёздное небо (js/night.js) ===== */
+.night-sky {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+body.night .night-sky { display: block; }
+
+/* Та же полоса неба внутри липкой шапки — чтобы звёзды не обрезались сверху */
+.night-sky-top {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: -1;
+    max-width: none;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+body.night .night-sky-top { display: block; }
+.top { overflow: hidden; }   /* холст неба чуть шире экрана — не даём странице ехать вбок */
+
+/* ===== Волна от нажатых кнопок (js/press.js) — поверх всего ===== */
+.press-fx {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+/* ===== Короткие сообщения (js/toast.js) ===== */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--toast-lift, 0px));
+    z-index: 50;
+    max-width: min(92vw, 420px);
+    padding: 10px 14px;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    transform: translate(-50%, 160%);
+    transition: transform 0.24s steps(3, end);
+    pointer-events: none;
+}
+
+.toast.show { transform: translate(-50%, 0); }
+
+body.tester-on .toast { --toast-lift: var(--dock-h, 140px); }
+
+/* Кто отключил анимации в системе — без рывков */
+@media (prefers-reduced-motion: reduce) {
+    .tab-panel, .dots::after, .sound-btn.playing .px-icon, .step-num { animation: none; }
+    .tab, .switch, .switch-knob, .toast { transition: none; }
+}
