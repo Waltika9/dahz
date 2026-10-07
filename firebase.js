@@ -92,6 +92,10 @@ const BUILTIN_PROJECTS = {
     sdesk: {
         title: 'Short Desk', link: 'projects/sdesk/index.html',
         tag: 'sdesk.html', image: 'images/sdesk_prev.png', order: 7, eternal: true
+    },
+    schedule: {
+        title: 'IRL расписание', link: 'projects/schedule/index.html',
+        tag: 'schedule.json', image: '', order: 8, eternal: true
     }
 };
 
