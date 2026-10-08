@@ -5,19 +5,20 @@
 //   soon    — до начала урока 2 минуты или меньше (красный сигнал)
 //   off     — вне занятий: до первого урока или после последнего
 //   weekend — сегодня уроков нет (выходной)
-// ending = до конца урока или перемены 5 минут или меньше (мигание зелёным).
-// Функция чистая: ей можно дать любое время — так работает режим тестировщика.
+// ending = до конца УРОКА 5 минут или меньше (зелёный сигнал). У перемены зелёного
+// сигнала нет — только красный за 2 минуты до урока.
+// Функция чистая: ей можно дать любое время — так работает режим тестировки.
 
 import { minuteOfDay } from './clock.js?v=1';
 
 export const SOON_MIN = 2;      // за сколько минут до урока — красный сигнал
-export const ENDING_MIN = 5;    // за сколько минут до конца урока или перемены — мигание
+export const ENDING_MIN = 5;    // за сколько минут до конца урока — зелёный сигнал
 
 /* Возвращает объект:
    phase  — 'lesson' | 'break' | 'soon' | 'off' | 'weekend'
    kind   — 'lesson' | 'break' | 'off' (что идёт на самом деле: в 'soon' это перемена или 'off')
    reason — для 'off': 'before' (до уроков), 'after' (после), 'weekend'
-   ending — мигать ли зелёным
+   ending — зелёный сигнал «скоро конец урока»
    item   — текущий урок или перемена (или null)
    left   — сколько минут (с долями) до конца текущего или до первого урока
    next   — что дальше: { type: 'lesson' | 'break' | 'end' | 'none', item, daysAhead, weekday } */
@@ -65,7 +66,7 @@ export function getState(data, date) {
     const soon = left <= SOON_MIN;
     return {
         phase: soon ? 'soon' : 'break', kind: 'break', reason: '',
-        ending: !soon && left <= ENDING_MIN,
+        ending: false,      // у перемены зелёного сигнала нет
         item, left,
         next: { type: 'lesson', item: after, daysAhead: 0, weekday: date.getDay() }
     };

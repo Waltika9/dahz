@@ -6,11 +6,11 @@
 
 import { now, onTimeChange, minuteOfDay } from './clock.js?v=1';
 import { loadSchedule } from './data.js?v=1';
-import { renderSchedule, highlightSchedule, scrollToToday } from './schedule.js?v=5';
-import { fillIcons, icon } from './pixel.js?v=5';
-import { renderIrl, showIrlError } from './irl.js?v=5';
-import { initTester, renderTesterDock } from './tester.js?v=2';
-import { initFx, setFxVisible, setFxNight } from './fx.js?v=2';
+import { renderSchedule, highlightSchedule, scrollToToday } from './schedule.js?v=7';
+import { fillIcons, icon } from './pixel.js?v=6';
+import { renderIrl, showIrlError } from './irl.js?v=6';
+import { initTester, renderTesterDock } from './tester.js?v=3';
+import { initFx, setFxVisible, setFxNight } from './fx.js?v=3';
 import { initNight, setNight } from './night.js?v=2';
 import { initPress } from './press.js?v=1';
 import { toggleSound, skipTrack, setHome, isSoundOn, isPlaying, onAudioChange } from './audio.js?v=3';
@@ -96,25 +96,74 @@ function renderVolume() {
 volumeInput.addEventListener('input', () => settings.set('volume', Number(volumeInput.value) / 100));
 renderVolume();
 
+// ----- Кнопка «наверх» (на вкладке «Расписание») -----
+// Появляется, когда страницу прокрутили вниз; одно нажатие — плавно к самому верху.
+
+const toTop = document.getElementById('toTop');
+
+function updateToTop() {
+    const show = current === 'schedule' && window.scrollY > 240;
+    toTop.classList.toggle('show', show);
+    toTop.tabIndex = show ? 0 : -1;
+    toTop.setAttribute('aria-hidden', String(!show));
+}
+window.addEventListener('scroll', updateToTop, { passive: true });
+toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
 // ----- Вкладки -----
-// Активная вкладка заливается чёрным ступеньками: новая — со стороны старой,
-// а старая «утекает» в сторону новой. Так кажется, что чёрная плашка переезжает.
+// Чёрная плашка (класс lit) переезжает ступеньками: новая вкладка заливается со стороны
+// старой, а старая «утекает» в сторону новой. Если вкладка через одну — плашка
+// не перепрыгивает, а проезжает через среднюю: шаг за шагом.
+
+let litIndex = -1;          // где сейчас плашка
+let litTimers = [];
+
+function lightTab(i, fromSide) {
+    tabButtons[i].style.backgroundPosition = `${fromSide} center`;
+    tabButtons[i].classList.add('lit');
+}
+
+function unlightTab(i, toSide) {
+    tabButtons[i].style.backgroundPosition = `${toSide} center`;
+    tabButtons[i].classList.remove('lit');
+}
+
+function moveLit(to) {
+    litTimers.forEach(clearTimeout);
+    litTimers = [];
+    if (litIndex < 0) {             // первая загрузка — просто залить
+        lightTab(to, 'left');
+        litIndex = to;
+        return;
+    }
+    if (litIndex === to) return;
+    const dir = to > litIndex ? 1 : -1;
+    const steps = Math.abs(to - litIndex);
+    // через одну вкладку — каждый шаг чуть быстрее, чтобы весь путь не был долгим
+    const stepMs = steps > 1 ? 130 : 200;
+    tabsNav.style.setProperty('--tab-step', `${stepMs}ms`);
+    for (let k = 0; k < steps; k++) {
+        litTimers.push(setTimeout(() => {
+            const a = litIndex, b = litIndex + dir;
+            unlightTab(a, dir > 0 ? 'right' : 'left');
+            lightTab(b, dir > 0 ? 'left' : 'right');
+            litIndex = b;
+        }, k * stepMs));
+    }
+}
 
 function showTab(name, { focus = false } = {}) {
     if (!TABS.includes(name)) name = 'irl';
-    const from = TABS.indexOf(current);
     const to = TABS.indexOf(name);
-    const toRight = from < 0 || to >= from;
     current = name;
 
     tabButtons.forEach((btn, i) => {
         const on = i === to;
-        if (on) btn.style.backgroundPosition = toRight ? 'left center' : 'right center';
-        else if (i === from) btn.style.backgroundPosition = toRight ? 'right center' : 'left center';
         btn.setAttribute('aria-selected', on);
         btn.tabIndex = on ? 0 : -1;
         if (on && focus) btn.focus();
     });
+    moveLit(to);
     TABS.forEach(t => {
         document.getElementById(`tab-${t}`).hidden = t !== name;
     });
@@ -131,6 +180,7 @@ function showTab(name, { focus = false } = {}) {
     } else {
         window.scrollTo(0, 0);
     }
+    updateToTop();
 }
 
 tabButtons.forEach(btn => {

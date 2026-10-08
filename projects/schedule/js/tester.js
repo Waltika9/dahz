@@ -6,7 +6,8 @@
 import { setFakeTime, resetTime, isFakeTime, formatMinutes, WEEKDAYS_SHORT } from './clock.js?v=1';
 import * as settings from './settings.js?v=2';
 
-// Порядок и названия — как в ТЗ (+ «За 5 мин до конца» и «Выходной»)
+// Порядок и названия — как в ТЗ (+ «За 5 мин до конца» и «Выходной»).
+// «Конец перемены» убран: зелёного сигнала в конце перемены больше нет.
 const SCENARIOS = [
     { id: 'break',     name: 'Перемена',          hint: 'зелёный' },
     { id: 'lesson',    name: 'Урок',              hint: 'белый' },
@@ -14,7 +15,6 @@ const SCENARIOS = [
     { id: 'soon',      name: 'До начала урока',   hint: '2 мин, красный сигнал' },
     { id: 'lesson5',   name: 'За 5 мин до конца', hint: 'урок, сигнал через 3 с' },
     { id: 'lessonEnd', name: 'Конец урока',       hint: '5 мин, зелёный сигнал' },
-    { id: 'breakEnd',  name: 'Конец перемены',    hint: '5 мин, зелёный сигнал' },
     { id: 'weekend',   name: 'Выходной',          hint: 'нет уроков' }
 ];
 
@@ -66,7 +66,6 @@ function scenarioTime(id, data) {
         case 'lesson5':   return at(date, lesson.end - 5 - 3 / 60);
         case 'lessonEnd': return at(date, lesson.end - 4);
         case 'break':     return brk && at(date, brk.start + 1);
-        case 'breakEnd':  return brk && at(date, Math.max(brk.start, brk.end - 4));
         case 'soon':      return at(date, (brk ? brk.end : lessons[0].start) - 1.5);
         case 'off':       return at(date, Math.min(lastEnd + 90, 23 * 60 + 30));
     }

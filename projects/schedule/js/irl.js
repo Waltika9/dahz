@@ -5,7 +5,7 @@
 // Когда состояние меняется (урок начался, перемена кончилась…), от блока расходится волна.
 
 import { formatMinutes, isFakeTime, WEEKDAYS } from './clock.js?v=1';
-import { getState } from './state.js?v=1';
+import { getState } from './state.js?v=2';
 import { subjectName } from './settings.js?v=2';
 import { waveAround } from './press.js?v=1';
 
@@ -62,7 +62,7 @@ function describe(s) {
         v.sub = `${formatMinutes(it.start)} – ${formatMinutes(it.end)}`;
     } else if (s.kind === 'break') {
         const name = it.gap ? 'Окно' : 'Перемена';
-        v.badge = soon ? 'Пора на урок!' : s.ending ? 'Конец перемены' : name;
+        v.badge = soon ? 'Пора на урок!' : name;
         v.title = name;
         v.status = soon ? `урок начнётся через ${formatLeft(s.left)}` : `закончится через ${formatLeft(s.left)}`;
         v.sub = `до ${formatMinutes(it.end)}`;

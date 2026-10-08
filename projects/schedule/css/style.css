@@ -85,8 +85,6 @@ body {
     min-height: 100vh;
     min-height: 100dvh;
     background-color: var(--bg);
-    /* мелкая пиксельная сетка из точек 2×2 */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='2' height='2' fill='%23dbe3ec'/%3E%3C/svg%3E");
     color: var(--text);
     font-family: var(--font);
     font-size: 16px;
@@ -186,10 +184,12 @@ b { font-weight: 400; }
     font-size: 16px;
     cursor: pointer;
     touch-action: manipulation;
-    transition: background-size 0.2s steps(4, end), color 0.2s steps(2, end);
+    /* длительность шага задаёт app.js: через одну вкладку шаги короче */
+    transition: background-size var(--tab-step, 0.2s) steps(4, end), color var(--tab-step, 0.2s) steps(2, end);
 }
 
-.tab[aria-selected="true"] { background-size: 100% 100%; }
+/* lit — на этой вкладке сейчас чёрная плашка (ставит app.js, по шагу за раз) */
+.tab.lit { background-size: 100% 100%; }
 
 .tab + .tab { border-left: var(--bw) solid var(--ink); }
 
@@ -200,7 +200,7 @@ b { font-weight: 400; }
     white-space: nowrap;
 }
 
-.tab[aria-selected="true"] { color: var(--on-ink); }
+.tab.lit { color: var(--on-ink); }
 
 .tab:focus-visible {
     outline: 3px dashed var(--ink);
@@ -257,7 +257,7 @@ main {
 .class-badge {
     padding: 2px 8px;
     border: var(--bw) solid var(--ink);
-    background: var(--yellow);
+    background: var(--card);
     box-shadow: var(--shadow-sm);
     font-size: 24px;
     line-height: 1.1;
@@ -663,13 +663,26 @@ body.tester-on main { padding-bottom: calc(var(--dock-h, 140px) + 24px); }
 }
 
 /* ===== Вкладка «Расписание» ===== */
+
+/* Кнопки дней прилипают под вкладками и остаются на экране при прокрутке.
+   Фон — как у страницы, чтобы под ними не просвечивали уроки. Высота — ровно --chips-h. */
 .day-chips {
+    --chips-h: 62px;
+    position: sticky;
+    top: var(--top-h);
+    z-index: 15;
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: 1fr;
     gap: 8px;
-    margin-bottom: 16px;
+    height: var(--chips-h);
+    /* фон шире кнопок на 8px с каждой стороны — закрывает и тени карточек (4–6px справа) */
+    margin: -4px -8px 12px;
+    padding: 4px 11px 0 8px;
+    background: var(--bg);
 }
+
+.day-chips .day-chip { height: 44px; }
 
 .day-chip {
     padding: 6px 0;
@@ -697,7 +710,8 @@ body.tester-on main { padding-bottom: calc(var(--dock-h, 140px) + 24px); }
 
 .day-card {
     margin-bottom: 18px;
-    scroll-margin-top: calc(var(--top-h) + 8px);
+    /* при переходе к дню он встаёт под вкладки и прилипшие кнопки дней */
+    scroll-margin-top: calc(var(--top-h) + 62px + 8px);
 }
 
 .day-head {
@@ -1065,6 +1079,42 @@ body.night .night-sky-top { display: block; }
     pointer-events: none;
 }
 
+/* ===== Кнопка «наверх» (вкладка «Расписание») ===== */
+.to-top {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--to-top-lift, 0px));
+    z-index: 25;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+    /* спрятана: чуть ниже и прозрачная; появляется рывком в 3 шага */
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+    transition: opacity 0.2s steps(3, end), transform 0.2s steps(3, end);
+}
+
+.to-top.show {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+.to-top.show:active { transform: translate(2px, 2px); box-shadow: var(--shadow-press); }
+.to-top .px-icon { width: 26px; height: 26px; }
+
+/* над панелью режима тестировки */
+body.tester-on .to-top { --to-top-lift: var(--dock-h, 140px); }
+
 /* ===== Короткие сообщения (js/toast.js) ===== */
 .toast {
     position: fixed;
@@ -1089,5 +1139,5 @@ body.tester-on .toast { --toast-lift: var(--dock-h, 140px); }
 /* Кто отключил анимации в системе — без рывков */
 @media (prefers-reduced-motion: reduce) {
     .tab-panel, .dots::after, .sound-btn.playing .px-icon, .step-num { animation: none; }
-    .tab, .switch, .switch-knob, .toast { transition: none; }
+    .tab, .switch, .switch-knob, .toast, .to-top { transition: none; }
 }

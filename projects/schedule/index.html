@@ -19,7 +19,7 @@
     <!-- Пиксельный шрифт Tiny5 лежит в assets/fonts и подключается в css/style.css -->
 
     <!-- ?v=N — версия файла: меняйте число при каждом изменении, иначе GitHub Pages до 10 минут отдаёт старую копию -->
-    <link rel="stylesheet" href="css/style.css?v=7">
+    <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
 
@@ -169,6 +169,11 @@
         </section>
     </main>
 
+    <!-- Кнопка «наверх»: появляется на вкладке «Расписание», когда страницу прокрутили вниз -->
+    <button class="to-top" id="toTop" type="button" aria-label="Наверх" title="Наверх" tabindex="-1" aria-hidden="true">
+        <span data-icon="up"></span>
+    </button>
+
     <!-- Панель сценариев режима тестировки: видна на всех вкладках, пока режим включён -->
     <div class="tester-dock" id="testerDock" hidden>
         <div class="dock-inner">
@@ -181,6 +186,6 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=8"></script>
+    <script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>

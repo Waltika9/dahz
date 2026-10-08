@@ -5,7 +5,7 @@
 // В режиме тестировки предметы называются «Урок-1», «Урок-2»… (subjectName).
 
 import { formatMinutes, minuteOfDay, plural, WEEKDAYS, WEEKDAYS_SHORT } from './clock.js?v=1';
-import { icon } from './pixel.js?v=5';
+import { icon } from './pixel.js?v=6';
 import { subjectName } from './settings.js?v=2';
 
 // Маленький помощник: создать элемент с классом и текстом
@@ -144,14 +144,17 @@ export function highlightSchedule(root, data, date) {
     const today = data.byWeekday.get(weekday);
     const hasLessons = !!today?.lessons.length;
     const next = hasLessons ? null : nextSchoolDay(data, weekday);
+    const tomorrow = (weekday + 1) % 7;
 
     root.querySelectorAll('.day-card[data-weekday]').forEach(card => {
         const wd = Number(card.dataset.weekday);
         const isToday = wd === weekday;
         const isNext = next?.weekday === wd;
+        const isTomorrow = wd === tomorrow;     // только надпись, без цвета
         card.classList.toggle('is-today', isToday);
         card.classList.toggle('is-next', isNext);
-        card.querySelector('.day-badge').textContent = isToday ? 'Сегодня' : isNext ? 'Следующий' : '';
+        card.querySelector('.day-badge').textContent =
+            isToday ? 'Сегодня' : isTomorrow ? 'Завтра' : isNext ? 'Следующий' : '';
 
         // Текущий урок / перемена и прошедшие — только у сегодняшнего дня
         card.querySelectorAll('.lesson, .break').forEach(row => {
