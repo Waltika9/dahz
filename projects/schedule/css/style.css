@@ -420,15 +420,6 @@ body.night .night-dog { display: block; }
 .now-status { font-size: 20px; }
 .now-sub { color: var(--muted); }
 
-/* На перемене в самом низу — какой урок дальше (отделён пунктиром) */
-.now-after {
-    margin-top: 4px;
-    padding-top: 5px;
-    border-top: 2px dashed var(--ink);
-    font-size: 20px;
-    overflow-wrap: anywhere;
-}
-
 /* Цвета состояний. На уроке блок белый (спокойно), перемена — зелёная */
 .now-card.phase-break { background: var(--green); }
 .now-card.phase-break .now-sub { color: var(--text); }
@@ -1079,42 +1070,6 @@ body.night .night-sky-top { display: block; }
     pointer-events: none;
 }
 
-/* ===== Кнопка «наверх» (вкладка «Расписание») ===== */
-.to-top {
-    position: fixed;
-    right: max(16px, env(safe-area-inset-right));
-    bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--to-top-lift, 0px));
-    z-index: 25;
-    display: grid;
-    place-items: center;
-    width: 52px;
-    height: 52px;
-    padding: 0;
-    border: var(--bw) solid var(--ink);
-    background: var(--card);
-    box-shadow: var(--shadow);
-    color: var(--ink);
-    cursor: pointer;
-    touch-action: manipulation;
-    /* спрятана: чуть ниже и прозрачная; появляется рывком в 3 шага */
-    opacity: 0;
-    transform: translateY(16px);
-    pointer-events: none;
-    transition: opacity 0.2s steps(3, end), transform 0.2s steps(3, end);
-}
-
-.to-top.show {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-}
-
-.to-top.show:active { transform: translate(2px, 2px); box-shadow: var(--shadow-press); }
-.to-top .px-icon { width: 26px; height: 26px; }
-
-/* над панелью режима тестировки */
-body.tester-on .to-top { --to-top-lift: var(--dock-h, 140px); }
-
 /* ===== Короткие сообщения (js/toast.js) ===== */
 .toast {
     position: fixed;
@@ -1139,5 +1094,5 @@ body.tester-on .toast { --toast-lift: var(--dock-h, 140px); }
 /* Кто отключил анимации в системе — без рывков */
 @media (prefers-reduced-motion: reduce) {
     .tab-panel, .dots::after, .sound-btn.playing .px-icon, .step-num { animation: none; }
-    .tab, .switch, .switch-knob, .toast, .to-top { transition: none; }
+    .tab, .switch, .switch-knob, .toast { transition: none; }
 }

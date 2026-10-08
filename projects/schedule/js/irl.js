@@ -17,7 +17,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
     date: $('irlDate'), time: $('irlTime'), fake: $('fakeBadge'),
     now: $('nowCard'), badge: $('nowBadge'),
-    title: $('nowTitle'), subject: $('nowSubject'), status: $('nowStatus'), sub: $('nowSub'), after: $('nowNext'),
+    title: $('nowTitle'), subject: $('nowSubject'), status: $('nowStatus'), sub: $('nowSub'),
     nextTitle: $('nextTitle'), nextSubject: $('nextSubject'), nextSub: $('nextSub')
 };
 
@@ -41,16 +41,12 @@ function lessonTitle(l) {
     return `Урок ${l.n}${l.room ? `, каб. ${l.room}` : ''}`;
 }
 
-// Какой урок дальше и куда идти: «Дальше: Физика, каб. 33» (кабинета нет — без него)
-function whereNext(l) {
-    return `Дальше: ${subjectName(l)}${l.room ? `, каб. ${l.room}` : ''}`;
-}
-
 // Все тексты и цвета для текущего состояния
 // Плашка справа сразу говорит, что делать: «Скоро конец» — расслабиться, «Пора на урок!» — идти.
-// На перемене строки идут так: «Перемена» → сколько осталось → до скольки → (в самом низу) какой урок дальше.
+// На перемене строки идут так: «Перемена» → сколько осталось → до скольки.
+// Какой урок дальше и в каком кабинете — в блоке «Дальше» ниже.
 function describe(s) {
-    const v = { phase: s.phase, ending: s.ending, badge: '', title: '', subject: '', status: '', sub: '', after: '' };
+    const v = { phase: s.phase, ending: s.ending, badge: '', title: '', subject: '', status: '', sub: '' };
     const it = s.item;
     const soon = s.phase === 'soon';
 
@@ -66,13 +62,11 @@ function describe(s) {
         v.title = name;
         v.status = soon ? `урок начнётся через ${formatLeft(s.left)}` : `закончится через ${formatLeft(s.left)}`;
         v.sub = `до ${formatMinutes(it.end)}`;
-        v.after = whereNext(s.next.item);        // в самом низу — какой урок дальше
     } else if (s.reason === 'before') {
         v.badge = soon ? 'Пора на урок!' : 'Вне занятий';
         v.title = soon ? 'Скоро первый урок' : 'Вне занятий';
         v.status = `уроки начнутся через ${formatLeft(s.left)}`;
         v.sub = `в ${formatMinutes(s.next.item.start)}`;
-        if (soon) v.after = whereNext(s.next.item);
     } else if (s.reason === 'after') {
         v.badge = 'Вне занятий';
         v.title = 'Вне занятий';
@@ -144,7 +138,6 @@ export function renderIrl(data, date) {
     setText(els.subject, v.subject);
     setText(els.status, v.status);
     setText(els.sub, v.sub);
-    setText(els.after, v.after);
     setText(els.nextTitle, v.next.title);
     setText(els.nextSubject, v.next.subject);
     setText(els.nextSub, v.next.sub);
@@ -159,7 +152,6 @@ export function showIrlError(message) {
     setText(els.subject, '');
     setText(els.status, message);
     setText(els.sub, '');
-    setText(els.after, '');
     setText(els.nextTitle, '—');
     setText(els.nextSubject, '');
     setText(els.nextSub, '');

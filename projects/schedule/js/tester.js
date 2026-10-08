@@ -11,7 +11,8 @@ import * as settings from './settings.js?v=2';
 const SCENARIOS = [
     { id: 'break',     name: 'Перемена',          hint: 'зелёный' },
     { id: 'lesson',    name: 'Урок',              hint: 'белый' },
-    { id: 'off',       name: 'Вне занятий',       hint: 'вечер, собака' },
+    { id: 'off',       name: 'Вне занятий',       hint: 'вечер' },
+    { id: 'soon3',     name: '3 мин до урока',    hint: 'перемена, сигнал через 1 мин' },
     { id: 'soon',      name: 'До начала урока',   hint: '2 мин, красный сигнал' },
     { id: 'lesson5',   name: 'За 5 мин до конца', hint: 'урок, сигнал через 3 с' },
     { id: 'lessonEnd', name: 'Конец урока',       hint: '5 мин, зелёный сигнал' },
@@ -66,6 +67,8 @@ function scenarioTime(id, data) {
         case 'lesson5':   return at(date, lesson.end - 5 - 3 / 60);
         case 'lessonEnd': return at(date, lesson.end - 4);
         case 'break':     return brk && at(date, brk.start + 1);
+        // за 3 минуты до урока: ещё обычная перемена, через минуту — красный сигнал
+        case 'soon3':     return at(date, (brk ? brk.end : lessons[0].start) - 3);
         case 'soon':      return at(date, (brk ? brk.end : lessons[0].start) - 1.5);
         case 'off':       return at(date, Math.min(lastEnd + 90, 23 * 60 + 30));
     }

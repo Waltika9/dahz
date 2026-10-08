@@ -8,9 +8,9 @@ import { now, onTimeChange, minuteOfDay } from './clock.js?v=1';
 import { loadSchedule } from './data.js?v=1';
 import { renderSchedule, highlightSchedule, scrollToToday } from './schedule.js?v=7';
 import { fillIcons, icon } from './pixel.js?v=6';
-import { renderIrl, showIrlError } from './irl.js?v=6';
-import { initTester, renderTesterDock } from './tester.js?v=3';
-import { initFx, setFxVisible, setFxNight } from './fx.js?v=3';
+import { renderIrl, showIrlError } from './irl.js?v=7';
+import { initTester, renderTesterDock } from './tester.js?v=4';
+import { initFx, setFxVisible, setFxNight } from './fx.js?v=4';
 import { initNight, setNight } from './night.js?v=2';
 import { initPress } from './press.js?v=1';
 import { toggleSound, skipTrack, setHome, isSoundOn, isPlaying, onAudioChange } from './audio.js?v=3';
@@ -96,20 +96,6 @@ function renderVolume() {
 volumeInput.addEventListener('input', () => settings.set('volume', Number(volumeInput.value) / 100));
 renderVolume();
 
-// ----- Кнопка «наверх» (на вкладке «Расписание») -----
-// Появляется, когда страницу прокрутили вниз; одно нажатие — плавно к самому верху.
-
-const toTop = document.getElementById('toTop');
-
-function updateToTop() {
-    const show = current === 'schedule' && window.scrollY > 240;
-    toTop.classList.toggle('show', show);
-    toTop.tabIndex = show ? 0 : -1;
-    toTop.setAttribute('aria-hidden', String(!show));
-}
-window.addEventListener('scroll', updateToTop, { passive: true });
-toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-
 // ----- Вкладки -----
 // Чёрная плашка (класс lit) переезжает ступеньками: новая вкладка заливается со стороны
 // старой, а старая «утекает» в сторону новой. Если вкладка через одну — плашка
@@ -152,9 +138,13 @@ function moveLit(to) {
     }
 }
 
+// Где была прокрутка на каждой вкладке: вернулся — оказался там же, где ушёл
+const scrollMemory = {};
+
 function showTab(name, { focus = false } = {}) {
     if (!TABS.includes(name)) name = 'irl';
     const to = TABS.indexOf(name);
+    if (current) scrollMemory[current] = window.scrollY;     // запомнить, где были
     current = name;
 
     tabButtons.forEach((btn, i) => {
@@ -178,14 +168,15 @@ function showTab(name, { focus = false } = {}) {
         scheduleSeen = true;
         scrollToToday(scheduleRoot);
     } else {
-        window.scrollTo(0, 0);
+        window.scrollTo(0, scrollMemory[name] || 0);
     }
-    updateToTop();
 }
 
 tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.dataset.tab !== current) showTab(btn.dataset.tab);
+        // нажали на уже открытую вкладку — плавно наверх (удобно в длинном расписании)
+        else window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 });
 
