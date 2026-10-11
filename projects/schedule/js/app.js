@@ -1,7 +1,8 @@
 // ===== IRL расписание: точка входа =====
 // Вкладки, загрузка расписания и «сердце» сайта: раз в секунду (ровно на смене секунды)
 // обновляются часы, блоки «Сейчас» и «Дальше»; подсветка расписания — раз в минуту.
-// Во внеурочное время включается домашний режим: ночная тема, звёзды, собака и музыка.
+// Во внеурочное время включается домашний режим: ночная тема, звёзды и музыка.
+// На блоке «Сейчас» всегда живёт пёсик (js/dog.js).
 // Ещё здесь подключаются уведомления и работа с экрана «Домой» (service worker).
 
 import { now, onTimeChange, minuteOfDay } from './clock.js?v=1';
@@ -11,7 +12,8 @@ import { fillIcons, icon } from './pixel.js?v=6';
 import { renderIrl, showIrlError } from './irl.js?v=7';
 import { initTester, renderTesterDock } from './tester.js?v=4';
 import { initFx, setFxVisible, setFxNight } from './fx.js?v=4';
-import { initNight, setNight } from './night.js?v=2';
+import { initNight, setNight } from './night.js?v=3';
+import { initDog, setDogVisible } from './dog.js?v=4';
 import { initPress } from './press.js?v=1';
 import { toggleSound, skipTrack, setHome, isSoundOn, isPlaying, onAudioChange } from './audio.js?v=3';
 import { initNotifyUI, checkNotifications } from './notify.js?v=1';
@@ -50,10 +52,17 @@ initFx({
     dialCanvas: document.getElementById('nowDial'),
     getData: () => data
 });
-const updateFx = () => setFxVisible(current === 'irl' && !document.hidden);
+// Пёсик на блоке «Сейчас» (и блоки, которые он умеет сбивать вниз)
+initDog({ card: nowCard, stack: document.getElementById('dropStack') });
 
-// Домашний режим: небо со звёздами и собака
-initNight({ card: nowCard });
+const updateFx = () => {
+    const on = current === 'irl' && !document.hidden;
+    setFxVisible(on);
+    setDogVisible(on);
+};
+
+// Домашний режим: небо со звёздами
+initNight();
 
 // Ночная тема — только на вкладке IRL (расписание и настройки остаются светлыми)
 function applyHome() {

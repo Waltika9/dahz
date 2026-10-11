@@ -19,7 +19,7 @@
     <!-- Пиксельный шрифт Tiny5 лежит в assets/fonts и подключается в css/style.css -->
 
     <!-- ?v=N — версия файла: меняйте число при каждом изменении, иначе GitHub Pages до 10 минут отдаёт старую копию -->
-    <link rel="stylesheet" href="css/style.css?v=13">
+    <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
 
@@ -53,9 +53,11 @@
                 <span class="fake-badge" id="fakeBadge" hidden>тест-время</span>
             </div>
 
+            <!-- «Сейчас» и «Дальше» вместе: пёсик может с грохотом спустить их вниз экрана (js/dog.js) -->
+            <div class="drop-stack" id="dropStack">
             <!-- «Сейчас»: цвет зависит от состояния (классы phase-*), анимации — js/fx.js
                  (он же добавляет сюда холст с частицами и атрибут data-fx).
-                 Во внеурочное время на блоке спит собака (js/night.js), слева — кнопка музыки -->
+                 Сверху на рамке живёт пёсик (js/dog.js), дома слева — кнопка музыки -->
             <section class="card now-card" id="nowCard">
                 <header class="block-head">
                     <button class="sound-btn" id="soundBtn" type="button" aria-pressed="false" aria-label="Музыка" title="Музыка" hidden></button>
@@ -87,6 +89,7 @@
                     <div class="next-sub" id="nextSub" hidden></div>
                 </div>
             </section>
+            </div>
         </section>
 
         <!-- ===== Расписание на всю неделю ===== -->
@@ -179,6 +182,6 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=15"></script>
+    <script type="module" src="js/app.js?v=19"></script>
 </body>
 </html>

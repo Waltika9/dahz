@@ -115,6 +115,13 @@ b { font-weight: 400; }
 
 [hidden] { display: none !important; }
 
+/* Все холсты и картинки — чёткими пикселями, без размытия при растягивании */
+canvas, img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+}
+
 /* Пиксельные иконки (js/pixel.js) */
 .px-icon {
     display: block;
@@ -319,31 +326,48 @@ main {
     text-transform: uppercase;
 }
 
-/* «Сейчас» */
+/* «Сейчас». Блок опущен: сверху на его рамке живёт пёсик */
 .now-card {
     position: relative;     /* внутри — холст эффектов */
-    margin-top: 0;
+    margin-top: 64px;
     margin-bottom: 16px;
-    transition-property: background-color, border-color, color, box-shadow, margin-top;
 }
 
-/* Дома блок немного опускается — сверху на нём спит собака */
-body.night .now-card { margin-top: 64px; }
-
-/* Спящая собака (js/night.js): холст 30×34 → 90×102, лежит на верхней рамке справа */
-.night-dog {
-    display: none;
+/* Пёсик (js/dog.js): холст над верхней рамкой во всю ширину блока,
+   1 пиксель = 3×3 CSS-пикселя (размер задаёт скрипт) */
+.dog {
     position: absolute;
-    right: 8px;
+    left: calc(-1 * var(--bw));
     bottom: calc(100% + var(--bw));
     z-index: 2;
-    width: 90px;
-    height: 102px;
-    image-rendering: pixelated;
     pointer-events: none;
 }
 
-body.night .night-dog { display: block; }
+/* В прыжке пёсик рисуется здесь — поверх всей страницы, выше вкладок */
+.dog-air {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 25;
+    pointer-events: none;
+}
+
+/* Невидимая кнопка по контуру пёсика: нажать — прыжок, потянуть — пойдёт следом.
+   touch-action: none — пока тянут пёсика, страница не прокручивается */
+.dog-hit {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 3;
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.dog-hit.dragging { cursor: grabbing; }
+.dog-hit:focus-visible { outline: 3px dashed var(--ink); outline-offset: 2px; }
 
 /* Кнопка музыки — в левом углу блока (только дома) */
 .sound-btn {

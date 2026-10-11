@@ -1,61 +1,26 @@
 // ===== Домашний режим (внеурочное время) =====
 // Страница становится тёмно-синей (класс night у <body>, цвета — в CSS),
-// на фоне мигают пиксельные звёзды и иногда пролетает падающая звезда,
-// а на блоке «Сейчас» спит собака: дышит в такт и выпускает «Zzz».
+// на фоне мигают пиксельные звёзды и иногда пролетает падающая звезда.
+// (Пёсик на блоке «Сейчас» живёт в js/dog.js — он там всегда, а не только дома.)
 // Всё бьёт в единый бит (beat.js). Рисуется, только пока режим включён.
 
 import { now } from './clock.js?v=1';
 import { beatAt } from './beat.js?v=1';
 import { PixBuf, color } from './pixbuf.js?v=1';
 
-const SKY_S = 3;           // пиксель неба = 3×3 CSS-пикселя (собака тоже 3×3 — размер в CSS)
+const SKY_S = 3;           // пиксель неба = 3×3 CSS-пикселя
 
 const STAR_COLORS = ['#ffffff', '#c7d2fe', '#8fa0d8', '#fde68a'].map(color);
 const DIM = color('#4a5a92');
 const WHITE = color('#ffffff');
-const ZZZ = color('#c7d2fe');
 
-// Спящая собака (по мотивам собаки Тоби Фокса): лежит, глаза закрыты.
-// '#' — белый пиксель, '.' — пусто.
-const DOG = [
-    '.#.####.#.........',
-    '.########.........',
-    '.#########........',
-    '#..##..###........',
-    '############......',
-    '###..#########....',
-    '#.#.##.###########',
-    '##....############',
-    '##################',
-    '##################',
-    '##################',
-    '##################',
-    '#################.',
-    '.################.',
-    '.##..##....##..##.'
-];
-// Вдох: спина приподнимается на пиксель
-const INHALE = [[4, 12], [4, 13], [5, 14], [5, 15], [5, 16]];
-
-// Буквы «Z» трёх размеров
-const Z = [
-    ['###', '.#.', '###'],
-    ['####', '..#.', '.#..', '####'],
-    ['#####', '...#.', '..#..', '.#...', '#####']
-];
-
-const DOG_W = 30, DOG_H = 34;              // холст собаки в пикселях (в CSS — 90×102)
-const DOG_X = DOG_W - DOG[0].length;       // собака прижата вправо…
-const DOG_Y = DOG_H - DOG.length;          // …и вниз
-
-let sky, skyBuf, dogCanvas, dogBuf;
+let sky, skyBuf;
 let topSky, topCtx, topBar;     // копия верхней полосы неба внутри липкой шапки
 let stars = [];
 let shooting = null;
 let on = false, raf = 0, lastKey = '';
-let zs = [], lastZBeat = -1;
 
-export function initNight({ card }) {
+export function initNight() {
     sky = document.createElement('canvas');
     sky.className = 'night-sky';
     sky.setAttribute('aria-hidden', 'true');
@@ -70,14 +35,6 @@ export function initNight({ card }) {
     topSky.setAttribute('aria-hidden', 'true');
     topBar.prepend(topSky);
     topCtx = topSky.getContext('2d');
-
-    dogCanvas = document.createElement('canvas');
-    dogCanvas.className = 'night-dog';
-    dogCanvas.setAttribute('aria-hidden', 'true');
-    dogCanvas.title = 'Тсс… собака спит';
-    card.append(dogCanvas);
-    dogBuf = new PixBuf(dogCanvas);
-    dogBuf.resize(DOG_W, DOG_H);
 
     window.addEventListener('resize', () => { if (on) makeStars(); });
 }
@@ -120,9 +77,7 @@ function loop() {
 }
 
 export function nightFrame(t = performance.now()) {
-    const beat = beatAt(now().getTime());
-    drawSky(beat, t / 1000);
-    drawDog(beat, t / 1000);
+    drawSky(beatAt(now().getTime()), t / 1000);
 }
 
 // ----- Небо -----
@@ -183,39 +138,4 @@ function copyTopSky() {
     }
     topCtx.clearRect(0, 0, topSky.width, rows);
     topCtx.drawImage(sky, 0, 0, skyBuf.w, rows, 0, 0, skyBuf.w, rows);
-}
-
-// ----- Собака -----
-
-function drawDog(beat, tSec) {
-    const b = dogBuf;
-    b.clear();
-
-    // дыхание: вдох на чётный удар, выдох на нечётный — медленно и спокойно
-    const inhale = beat.index % 2 === 0;
-    DOG.forEach((row, y) => {
-        for (let x = 0; x < row.length; x++) {
-            if (row[x] === '#') b.dot(DOG_X + x, DOG_Y + y, WHITE);
-        }
-    });
-    if (inhale) for (const [y, x] of INHALE) b.dot(DOG_X + x, DOG_Y + y - 1, WHITE);
-
-    // новая «Z» каждые 2 удара; летит вверх-влево ступеньками и растёт
-    if (beat.index !== lastZBeat && beat.index % 2 === 0) {
-        lastZBeat = beat.index;
-        zs.push({ t0: tSec });
-    }
-    zs = zs.filter(z => tSec - z.t0 < 3);
-    for (const z of zs) {
-        const k = (tSec - z.t0) / 3;
-        const step = Math.floor(k * 9);
-        const glyph = Z[Math.min(2, Math.floor(k * 3))];
-        const x = DOG_X + 4 - step * 1.2, y = DOG_Y - 4 - step * 1.6;
-        b.fade = k > 0.6 ? (k - 0.6) / 0.4 : 0;
-        glyph.forEach((row, j) => {
-            for (let i = 0; i < row.length; i++) if (row[i] === '#') b.dot(x + i, y + j, ZZZ);
-        });
-    }
-    b.fade = 0;
-    b.flush();
 }
