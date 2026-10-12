@@ -1,0 +1,774 @@
+/* ============================================================
+   Печаталка ⌨️ — style.css
+   Пиксельный монохромный интерфейс в стиле Space Simulator:
+   - Фон почти чёрный (#0a0a0a)
+   - Белые рамки 3px, белые жёсткие смещённые тени (3px 3px 0 #fff)
+   - Шрифт Tiny5, размеры кратны 4px
+   - Инверсия при наведении, сдвиг на тень при клике/нажатии
+   - Пиксельные узоры (дизеринг/полосы/точки) вместо цветов
+   ============================================================ */
+
+@font-face {
+    font-family: 'Tiny5';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('assets/fonts/tiny5-cyrillic.woff2') format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: 'Tiny5';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('assets/fonts/tiny5-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    --bg: #0a0a0a;
+    --fg: #ffffff;
+    --dim: #555555;
+    --dark-dim: #222222;
+    --font: 'Tiny5', monospace;
+    font-synthesis: none;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+html, body {
+    width: 100%;
+    min-height: 100%;
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.2;
+    image-rendering: pixelated;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    overflow-x: hidden;
+}
+
+/* ---------- Ссылки и кнопки ---------- */
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+}
+
+/* ---------- Пиксельные кнопки (необрутализм главной страницы) ---------- */
+.px-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    font-size: 16px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.px-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.px-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--fg);
+}
+
+.px-btn.is-active {
+    background: var(--fg);
+    color: var(--bg);
+}
+
+/* ---------- Шапка приложения ---------- */
+.app-header {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    margin-bottom: 16px;
+}
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.app-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 24px;
+    letter-spacing: 1px;
+}
+
+/* Кнопка на главную */
+.home-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    color: var(--fg);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.home-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.home-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--fg);
+}
+
+/* ---------- Статистическая плашка ---------- */
+.stats-bar {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 12px 16px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    margin-bottom: 16px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: var(--dim);
+    text-transform: uppercase;
+}
+
+.stat-val {
+    font-size: 24px;
+}
+
+/* ---------- Панель режимов (Уроки, Текст, Тест 1 мин) ---------- */
+.modes-bar {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.modes-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Карта уроков (пиксельная сетка с замочками) ---------- */
+.lessons-container {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    margin-bottom: 16px;
+}
+
+.lessons-title {
+    font-size: 16px;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lessons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+
+.lesson-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 64px;
+    border: 2px solid var(--fg);
+    box-shadow: 2px 2px 0 var(--fg);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.lesson-card:hover:not(.is-locked) {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+}
+
+.lesson-card:active:not(.is-locked) {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+}
+
+.lesson-card.is-active {
+    background: var(--fg);
+    color: var(--bg);
+    outline: 2px solid var(--fg);
+}
+
+.lesson-card.is-locked {
+    border-color: var(--dim);
+    color: var(--dim);
+    box-shadow: 2px 2px 0 var(--dim);
+    cursor: not-allowed;
+    background-image: radial-gradient(#222 1px, transparent 0);
+    background-size: 4px 4px;
+}
+
+.lesson-card-num {
+    font-size: 16px;
+}
+
+/* ---------- Панель настроек / управления ---------- */
+.control-bar {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ---------- Строка набора текста (Display) ---------- */
+.display-wrapper {
+    width: 100%;
+    max-width: 980px;
+    height: 96px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    overflow: hidden;
+    position: relative;
+}
+
+.typer-text {
+    display: flex;
+    align-items: center;
+    white-space: pre;
+    font-size: 32px;
+    letter-spacing: 2px;
+}
+
+/* Символы */
+.char {
+    display: inline-block;
+    position: relative;
+    padding: 0 2px;
+}
+
+.char.is-done {
+    color: var(--fg);
+}
+
+.char.is-pending {
+    color: var(--dim);
+}
+
+.char.is-space {
+    opacity: 0.6;
+}
+
+/* Текущий курсор */
+.char.is-current {
+    color: var(--bg);
+    background: var(--fg);
+    animation: blink-cursor 1s steps(1) infinite;
+}
+
+/* Ошибка */
+.char.is-current.is-error {
+    background: var(--fg);
+    color: var(--bg);
+    outline: 2px solid var(--fg);
+}
+
+@keyframes blink-cursor {
+    0%, 50% {
+        color: var(--bg);
+        background: var(--fg);
+    }
+    51%, 100% {
+        color: var(--fg);
+        background: transparent;
+    }
+}
+
+/* Тряска при ошибке */
+.display-wrapper.is-shaking {
+    animation: px-shake 0.2s steps(2);
+}
+
+@keyframes px-shake {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(-6px, 0); }
+    50% { transform: translate(6px, 0); }
+    75% { transform: translate(-4px, 0); }
+    100% { transform: translate(0, 0); }
+}
+
+/* ---------- Экранная клавиатура ---------- */
+.keyboard-section {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 16px;
+    position: relative;
+}
+
+.keyboard-section.is-hidden {
+    display: none;
+}
+
+.keyboard-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.px-keyboard {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    position: relative;
+    z-index: 1;
+}
+
+/* Тепловая карта ошибок (пиксельный дизеринг разной плотности) */
+.kb-key.heat-1 {
+    background-image: radial-gradient(#444 1px, transparent 0);
+    background-size: 4px 4px;
+}
+.kb-key.heat-2 {
+    background-image: repeating-linear-gradient(45deg, #444, #444 1px, transparent 1px, transparent 3px);
+}
+.kb-key.heat-3 {
+    background-image: repeating-linear-gradient(45deg, #777, #777 2px, transparent 2px, transparent 4px);
+}
+.kb-key.heat-4 {
+    background-color: #555555;
+    outline: 1px dashed var(--fg);
+}
+
+.kb-row {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+}
+
+.kb-key {
+    height: 48px;
+    border: 2px solid var(--fg);
+    box-shadow: 2px 2px 0 var(--fg);
+    background-color: var(--bg);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 6px;
+    font-size: 16px;
+    overflow: hidden;
+}
+
+/* Нажатая физически клавиша — сдвиг на тень */
+.kb-key.is-pressed {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+}
+
+/* Целевая клавиша — инверсия и мигание */
+.kb-key.is-target {
+    background: var(--fg) !important;
+    color: var(--bg) !important;
+    animation: px-target-blink 0.6s steps(1) infinite;
+}
+
+.kb-key.is-target .key-char {
+    color: var(--bg) !important;
+}
+
+.kb-key.is-target-shift {
+    background: var(--fg) !important;
+    color: var(--bg) !important;
+    animation: px-target-blink 0.6s steps(1) infinite;
+}
+
+.kb-key.is-target-shift .key-label {
+    color: var(--bg) !important;
+}
+
+@keyframes px-target-blink {
+    0%, 50% {
+        background: var(--fg);
+        color: var(--bg);
+    }
+    51%, 100% {
+        background: var(--bg);
+        color: var(--fg);
+    }
+}
+
+/* Буквы на клавише */
+.key-char {
+    line-height: 1;
+}
+
+.en-char {
+    align-self: flex-start;
+    font-size: 12px;
+}
+
+.ru-char {
+    align-self: flex-end;
+    font-size: 16px;
+}
+
+/* Активная раскладка яркая, вторая — тусклая дизерингом */
+.px-keyboard[data-active-layout="ru"] .en-char {
+    color: var(--dim);
+}
+.px-keyboard[data-active-layout="ru"] .ru-char {
+    color: var(--fg);
+}
+.px-keyboard[data-active-layout="en"] .ru-char {
+    color: var(--dim);
+}
+.px-keyboard[data-active-layout="en"] .en-char {
+    color: var(--fg);
+}
+
+/* Служебные клавиши */
+.kb-key.is-special, .kb-key.is-space {
+    align-items: center;
+    justify-content: center;
+}
+
+.key-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+/* Засечки F / J (А / О) */
+.is-homing .key-nub {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 2px;
+    background: var(--fg);
+}
+
+.is-target.is-homing .key-nub {
+    background: var(--bg);
+}
+
+/* ---------- Пиксельные узоры зон пальцев (фона клавиш) ---------- */
+/* Зона 1: мизинцы (точки 4x4) */
+.finger-left-pinky, .finger-right-pinky {
+    background-image: radial-gradient(#222 1px, transparent 0);
+    background-size: 4px 4px;
+}
+
+/* Зона 2: безымянные (косая штриховка) */
+.finger-left-ring, .finger-right-ring {
+    background-image: repeating-linear-gradient(45deg, #181818, #181818 2px, transparent 2px, transparent 4px);
+}
+
+/* Зона 3: средние (вертикальная штриховка) */
+.finger-left-middle, .finger-right-middle {
+    background-image: repeating-linear-gradient(90deg, #181818, #181818 2px, transparent 2px, transparent 4px);
+}
+
+/* Зона 4: указательные (горизонтальная штриховка) */
+.finger-left-index, .finger-right-index {
+    background-image: repeating-linear-gradient(0deg, #181818, #181818 2px, transparent 2px, transparent 4px);
+}
+
+/* Большие пальцы */
+.finger-thumb {
+    background-color: #0d0d0d;
+}
+
+/* ---------- Пиксельные руки под клавиатурой ---------- */
+/* Рисует js/pixel.js: одна рука 42×44 «пикселя», 1 пиксель = 4 CSS px */
+.hands-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.hands-svg {
+    display: block;
+    width: 392px;   /* (42 + 14 + 42) × 4 */
+    height: 212px;  /* (44 + 9) × 4 */
+    max-width: 100%;
+    shape-rendering: crispEdges;
+}
+
+/* Пальцы: белый контур, внутри тёмный дизеринг */
+.hp .hp-edge { fill: var(--fg); }
+.hp .hp-fill { fill: url(#hp-dim); }
+
+/* Палец, которым нажимать, — залит белым и мигает в такт клавише */
+.hp.is-on .hp-fill { fill: var(--fg); }
+.hp.is-on { animation: hp-blink 0.6s steps(1) infinite; }
+
+/* Мизинец, который держит Shift, — белая шахматка */
+.hp.is-extra .hp-fill { fill: url(#hp-half); }
+
+@keyframes hp-blink {
+    50% { opacity: 0.4; }
+}
+
+/* Буквы над кончиками пальцев */
+.hl {
+    font-family: var(--font);
+    font-size: 4px; /* 16 CSS px при масштабе 4 */
+    fill: var(--dim);
+    text-anchor: middle;
+}
+
+.hl.is-on { fill: var(--fg); }
+
+.finger-hint-bar {
+    font-size: 16px;
+    letter-spacing: 1px;
+    border: 2px solid var(--fg);
+    padding: 4px 12px;
+    background: #111111;
+}
+
+.finger-hint-name {
+    color: var(--fg);
+    background: var(--bg);
+}
+
+/* ---------- Пиксельные диалоговые окна (модалки) ---------- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-box {
+    width: 90%;
+    max-width: 480px;
+    border: 3px solid var(--fg);
+    box-shadow: 6px 6px 0 var(--fg);
+    background: var(--bg);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+}
+
+.modal-title {
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-text {
+    font-size: 16px;
+    line-height: 1.4;
+    color: var(--fg);
+}
+
+.modal-hint {
+    font-size: 12px;
+    color: var(--dim);
+}
+
+/* ---------- Секция статистики и графика ---------- */
+.stats-section {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 3px solid var(--fg);
+    box-shadow: 3px 3px 0 var(--fg);
+    background: var(--bg);
+    margin-bottom: 16px;
+}
+
+.stats-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.stats-title {
+    font-size: 16px;
+    letter-spacing: 1px;
+}
+
+.graph-canvas {
+    width: 100%;
+    height: 160px;
+    image-rendering: pixelated;
+    background: #0a0a0a;
+}
+
+/* ---------- Заглушка для мобильных устройств без клавиатуры ---------- */
+.mobile-blocker {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.mobile-blocker-content {
+    max-width: 400px;
+    border: 3px solid var(--fg);
+    box-shadow: 6px 6px 0 var(--fg);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+}
+
+.mobile-blocker-title {
+    font-size: 20px;
+}
+
+.mobile-blocker-text {
+    font-size: 16px;
+    line-height: 1.4;
+    color: var(--dim);
+}
+
+/* Адаптивность для ширины экрана */
+@media (max-width: 900px) {
+    .kb-key {
+        height: 40px;
+        padding: 2px 3px;
+        font-size: 12px;
+    }
+    .en-char {
+        font-size: 10px;
+    }
+    .ru-char {
+        font-size: 12px;
+    }
+    .display-wrapper {
+        height: 72px;
+    }
+    .typer-text {
+        font-size: 24px;
+    }
+}
