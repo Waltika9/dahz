@@ -96,6 +96,10 @@ const BUILTIN_PROJECTS = {
     schedule: {
         title: 'IRL расписание', link: 'projects/schedule/index.html',
         tag: 'schedule.json', image: '', order: 8, eternal: true
+    },
+    pechatalka: {
+        title: 'Печаталка ⌨️', link: 'projects/pechatalka/index.html',
+        tag: 'pechatalka.js', image: '', order: 9, eternal: true
     }
 };
 
