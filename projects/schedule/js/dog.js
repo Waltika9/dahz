@@ -1474,8 +1474,8 @@ const RISE_KEYS = [0.06, 0.18, 0.36, 0.58, 0.8, 0.95, 1.04, 1];
 function dropDistance() {
     const r = stack.lastElementChild.getBoundingClientRect();
     const bottom = r.bottom - stackOff + 4;                         // +4 — тень блока
-    const main = stack.closest('main');
-    const pad = main ? parseFloat(getComputedStyle(main).paddingBottom) || 32 : 32;
+    const panel = stack.closest('.tab-panel');                     // нижний отступ вкладки (с полосой теста — больше)
+    const pad = panel ? parseFloat(getComputedStyle(panel).paddingBottom) || 32 : 32;
     return Math.max(10 * P, Math.floor((innerHeight - pad - bottom) / P) * P);
 }
 

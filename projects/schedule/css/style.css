@@ -176,9 +176,9 @@ canvas, img {
     box-shadow: var(--shadow);
 }
 
-/* Каждая вкладка заливается чёрным сама (фон-полоса растёт ступеньками).
-   Сторону, откуда идёт заливка, задаёт app.js — так кажется, что плашка переезжает.
-   Заливка — фон самой кнопки, поэтому у краёв не бывает щелей в долю пикселя. */
+/* Чёрная плашка — это заливка самих кнопок: app.js каждый кадр задаёт, на сколько
+   процентов залита каждая вкладка и с какой стороны, — так плашка плавно едет вместе
+   с лентой страниц. Заливка — фон кнопки, поэтому у краёв не бывает щелей в долю пикселя. */
 .tab {
     display: flex;
     flex-direction: column;
@@ -191,11 +191,10 @@ canvas, img {
     font-size: 16px;
     cursor: pointer;
     touch-action: manipulation;
-    /* длительность шага задаёт app.js: через одну вкладку шаги короче */
-    transition: background-size var(--tab-step, 0.2s) steps(4, end), color var(--tab-step, 0.2s) steps(2, end);
+    transition: none;       /* плашку двигает app.js, без CSS-задержек */
 }
 
-/* lit — на этой вкладке сейчас чёрная плашка (ставит app.js, по шагу за раз) */
+/* lit — плашка закрывает больше половины вкладки: текст белый */
 .tab.lit { background-size: 100% 100%; }
 
 .tab + .tab { border-left: var(--bw) solid var(--ink); }
@@ -214,19 +213,41 @@ canvas, img {
     outline-offset: 4px;
 }
 
-/* ===== Содержимое ===== */
+/* ===== Содержимое: три вкладки — одна лента (js/app.js) =====
+   Все вкладки лежат в одной клетке сетки друг на друге; app.js сдвигает их вбок
+   (transform), и они едут рядом, как одна длинная лента. Что уехало за край — обрезается. */
 main {
+    display: grid;
+    overflow-x: clip;
+}
+
+.tab-panel {
+    grid-area: 1 / 1;
+    width: 100%;
     max-width: 560px;
+    min-width: 0;
     margin: 0 auto;
     padding: 8px max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
-/* Вкладка появляется рывком в 3 шага */
-.tab-panel { animation: panel-in 0.24s steps(3, end) both; }
-
-@keyframes panel-in {
-    from { opacity: 0; transform: translateY(12px); }
+/* Закрытая вкладка не пропадает (не надо строить её заново — нет фризов),
+   а сжимается в ноль. Пока лента едет, соседняя вкладка (peek) раскрыта и выглядывает сбоку */
+.tab-panel:not(.active):not(.peek) {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    visibility: hidden;
 }
+
+/* По шапке можно водить пальцем или мышкой (js/app.js): вбок жест достаётся нам,
+   а вверх-вниз страница прокручивается как обычно */
+.tabs {
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.tabs .tab { touch-action: pan-y; }
 
 .card {
     border: var(--bw) solid var(--ink);
@@ -577,7 +598,7 @@ main {
     background: var(--bg);
 }
 
-body.tester-on main { padding-bottom: calc(var(--dock-h, 140px) + 24px); }
+body.tester-on .tab-panel:is(.active, .peek) { padding-bottom: calc(var(--dock-h, 140px) + 24px); }
 
 .dock-inner {
     max-width: 560px;
@@ -1117,6 +1138,6 @@ body.tester-on .toast { --toast-lift: var(--dock-h, 140px); }
 
 /* Кто отключил анимации в системе — без рывков */
 @media (prefers-reduced-motion: reduce) {
-    .tab-panel, .dots::after, .sound-btn.playing .px-icon, .step-num { animation: none; }
+    .dots::after, .sound-btn.playing .px-icon, .step-num { animation: none; }
     .tab, .switch, .switch-knob, .toast { transition: none; }
 }

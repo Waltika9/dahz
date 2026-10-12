@@ -19,7 +19,7 @@
     <!-- Пиксельный шрифт Tiny5 лежит в assets/fonts и подключается в css/style.css -->
 
     <!-- ?v=N — версия файла: меняйте число при каждом изменении, иначе GitHub Pages до 10 минут отдаёт старую копию -->
-    <link rel="stylesheet" href="css/style.css?v=15">
+    <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 
@@ -45,7 +45,8 @@
 
     <main>
         <!-- ===== IRL: что идёт сейчас и что дальше (js/irl.js) ===== -->
-        <section class="tab-panel" id="tab-irl" role="tabpanel" aria-labelledby="tabbtn-irl">
+        <!-- Три вкладки — одна лента: открытая (active) в потоке, остальные сжаты (js/app.js) -->
+        <section class="tab-panel active" id="tab-irl" role="tabpanel" aria-labelledby="tabbtn-irl">
             <!-- Дата и часы с секундами -->
             <div class="card clock-card">
                 <div class="clock-date" id="irlDate"></div>
@@ -93,7 +94,7 @@
         </section>
 
         <!-- ===== Расписание на всю неделю ===== -->
-        <section class="tab-panel" id="tab-schedule" role="tabpanel" aria-labelledby="tabbtn-schedule" hidden>
+        <section class="tab-panel" id="tab-schedule" role="tabpanel" aria-labelledby="tabbtn-schedule">
             <div class="panel-head">
                 <h1 class="panel-title">Расписание</h1>
                 <span class="class-badge" id="classBadge" hidden></span>
@@ -105,7 +106,7 @@
         </section>
 
         <!-- ===== Настройки ===== -->
-        <section class="tab-panel" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
+        <section class="tab-panel" id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings">
             <div class="panel-head">
                 <h1 class="panel-title">Настройки</h1>
             </div>
@@ -182,6 +183,6 @@
         </div>
     </div>
 
-    <script type="module" src="js/app.js?v=19"></script>
+    <script type="module" src="js/app.js?v=23"></script>
 </body>
 </html>
