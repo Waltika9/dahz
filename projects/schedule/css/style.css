@@ -55,7 +55,7 @@
     color-scheme: light;
 }
 
-/* ===== Домашний режим (внеурочное время, вкладка IRL) =====
+/* ===== Домашний режим (внеурочное время, вкладки IRL и «Расписание») =====
    Тёмно-синяя ночь: линии и рамки белые, блоки тёмные. Класс night ставит js/night.js.
    Тени заново: они собраны из --ink в :root и сами не перекрасятся. */
 body.night {
@@ -892,6 +892,22 @@ body.tester-on .tab-panel:is(.active, .peek) { padding-bottom: calc(var(--dock-h
 
 .break.is-now::before,
 .break.is-now::after { border-top-color: var(--ink); }
+
+/* Ночью (домашний режим) цветные плашки расписания остаются светлыми —
+   поэтому текст на них тёмный, иначе белые буквы на жёлтом не прочитать */
+body.night .day-chip.is-today,
+body.night .day-chip.is-next,
+body.night .day-card.is-today .day-head,
+body.night .day-card.is-next .day-head,
+body.night .lesson.is-now,
+body.night .break.is-now {
+    --text: #0f172a;
+    --muted: #475569;
+    color: #0f172a;
+}
+
+body.night .day-badge,
+body.night .lesson.is-now .l-num { color: var(--on-ink); }
 .break.is-now span::after { content: ' · сейчас'; color: var(--green-ink); }
 
 /* Звонки */

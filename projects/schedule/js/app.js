@@ -64,9 +64,9 @@ const updateFx = () => {
 // Домашний режим: небо со звёздами
 initNight();
 
-// Ночная тема — только на вкладке IRL (расписание и настройки остаются светлыми)
+// Ночная тема — на вкладках IRL и «Расписание» (настройки всегда светлые)
 function applyHome() {
-    const night = home && current === 'irl';
+    const night = home && current !== 'settings';
     setNight(night);
     setFxNight(night);
     soundBtn.hidden = !night;
