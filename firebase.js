@@ -100,6 +100,10 @@ const BUILTIN_PROJECTS = {
     pechatalka: {
         title: 'Печаталка ⌨️', link: 'projects/pechatalka/index.html',
         tag: 'pechatalka.js', image: '', order: 9, eternal: true
+    },
+    a_metro: {
+        title: 'AlmaMetro', link: 'projects/a-metro/index.html',
+        tag: 'a-metro.js', image: 'images/a-metro_prev.png', order: 10, eternal: true
     }
 };
 
