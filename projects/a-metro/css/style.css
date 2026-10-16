@@ -1,0 +1,1406 @@
+/* ============================================================
+   AlmaMetro — style.css
+   Интерфейс в духе InZOI:
+   - меню на сером градиенте, белый текст, тонкие белые линии;
+   - выбранное — белая «таблетка» с тёмным текстом;
+   - главная кнопка — голубая «таблетка»;
+   - в игре — полупрозрачные серые панели, круглые иконки в белой обводке.
+   ============================================================ */
+
+:root {
+    --white: #ffffff;
+    --text-2: rgba(255, 255, 255, 0.74);
+    --text-3: rgba(255, 255, 255, 0.55);
+    --line: rgba(255, 255, 255, 0.3);
+    --ink: #1f2429;                       /* текст на белом */
+    --pill: rgba(255, 255, 255, 0.17);    /* невыбранная «таблетка» */
+    --pill-hover: rgba(255, 255, 255, 0.28);
+    --glass-dark: rgba(48, 54, 62, 0.46); /* панели поверх светлой карты */
+    --glass-strong: rgba(42, 48, 56, 0.66);
+    --primary: #a9d5f6;                   /* голубая кнопка «Играть» */
+    --primary-hover: #c0e1fa;
+    --menu-grey: linear-gradient(160deg, #737b83 0%, #9aa1a8 48%, #c7cbce 100%);
+    --accent: #8fc2ff;
+
+    /* Цвета видов транспорта */
+    --metro: #e5484d;
+    --lrt: #2fb67c;
+    --sky: #8b5cf6;
+
+    --round: 26px;                        /* скругление панелей — мягкое, как у иконок */
+    --sat: env(safe-area-inset-top, 0px); /* вырез экрана сверху (iPhone) */
+    --sab: env(safe-area-inset-bottom, 0px);
+
+    --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --shadow-text: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+[hidden] { display: none !important; }
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #9aa1a8;
+    color: var(--white);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+button:disabled { cursor: default; }
+
+svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* ---------- Полупрозрачная серая панель ---------- */
+.glass-dark {
+    background: var(--glass-dark);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    color: var(--white);
+}
+
+/* ---------- Карта на весь экран ---------- */
+.map { position: fixed; inset: 0; }
+
+.maplibregl-ctrl-attrib { font-family: var(--font); font-size: 11px; }
+
+/* ---------- Круглая белая кнопка «назад/меню» ---------- */
+.back-btn {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--white);
+    color: var(--ink);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    transition: transform 0.2s;
+}
+
+.back-btn svg { width: 20px; height: 20px; stroke-width: 2; }
+.back-btn:hover { transform: scale(1.06); }
+.back-btn:active { transform: scale(0.94); }
+
+/* ---------- Голубая главная кнопка ---------- */
+.btn-primary {
+    padding: 13px 64px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: background 0.2s, transform 0.2s;
+}
+
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+/* ---------- Шапка «‹ Сайт | AlmaMetro» ---------- */
+.page-head {
+    position: absolute;
+    top: 26px;
+    left: 26px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 21px;
+    font-weight: 400;
+    z-index: 2;
+}
+
+.page-head-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.7); }
+.page-head-title { color: #d8ebff; }
+
+/* ============================================================
+   Главное меню
+   ============================================================ */
+.menu {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    overflow: hidden;
+    background: var(--menu-grey);
+    transition: opacity 0.7s ease, visibility 0.7s;
+}
+
+.menu.is-hidden { opacity: 0; visibility: hidden; }
+
+/* Фон чуть больше экрана, чтобы при движении за мышкой не было видно краёв */
+.menu-bg {
+    position: absolute;
+    inset: -40px;
+    will-change: transform;
+}
+
+.slide {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    will-change: transform, mask-image;
+}
+
+.slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: slow-zoom 12s ease-out forwards;
+}
+
+@keyframes slow-zoom {
+    from { transform: scale(1.04); }
+    to { transform: scale(1.12); }
+}
+
+/* Серая дымка: слева плотнее (там текст), справа видно фото */
+.menu-veil {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(104, 112, 120, 0.86) 0%, rgba(120, 128, 136, 0.62) 38%, rgba(140, 147, 154, 0.18) 75%),
+        linear-gradient(0deg, rgba(110, 118, 126, 0.45), transparent 35%);
+}
+
+.menu-body {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+}
+
+.menu-title {
+    margin-left: 70px;
+    font-size: 46px;
+    font-weight: 600;
+    letter-spacing: -0.8px;
+    text-shadow: var(--shadow-text);
+}
+
+.menu-tag {
+    margin: 8px 0 34px 70px;
+    font-size: 15px;
+    color: var(--text-2);
+    max-width: 360px;
+    line-height: 1.5;
+}
+
+/* Пункты — станции на схеме линии. --x — где проходит линия (от левого края) */
+.menu-nav {
+    --x: 43px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Сама линия: от первой станции до последней (высоту считает menu.js) */
+.menu-nav::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--x) - 1.5px);
+    top: var(--line-top, 24px);
+    width: 3px;
+    height: var(--line-h, 0px);
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.6);
+    z-index: 1;
+    pointer-events: none;
+    transform-origin: top;
+}
+
+/* «Поезд» — капсула цвета режима, ездит по линии (menu.js) */
+.menu-train {
+    position: absolute;
+    left: calc(var(--x) - 6px);
+    top: -10px;
+    width: 12px;
+    height: 20px;
+    border-radius: 6px;
+    background: var(--c, #fff);
+    border: 2px solid var(--white);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 3;
+    pointer-events: none;
+    transition: background 0.3s;
+}
+
+/* «Таблетки» прилипают к левому краю, как список в настройках InZOI */
+.nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 380px;
+    padding: 11px 26px 11px 70px;
+    border-radius: 0 999px 999px 0;
+    background: var(--pill);
+    color: var(--white);
+    font-size: 17px;
+    font-weight: 500;
+    text-align: left;
+    transition: background 0.2s, color 0.2s, padding 0.25s;
+}
+
+/* Станция — кружок в белой обводке на линии */
+.nav-item::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--x) - 7px);
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    border-radius: 50%;
+    background: #8a9299;
+    border: 3px solid var(--white);
+    box-sizing: border-box;
+    z-index: 2;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.nav-item:hover:not(:disabled), .nav-item:focus-visible {
+    background: var(--white);
+    color: var(--ink);
+    padding-left: 78px;
+    outline: none;
+}
+
+.nav-item:hover::before, .nav-item:focus-visible::before { background: var(--white); border-color: var(--c, var(--ink)); }
+
+/* Служебные пункты (файлы, заново) — потише и поменьше, станции мельче */
+.nav-item.is-small { padding-top: 8px; padding-bottom: 8px; font-size: 15px; font-weight: 400; color: var(--text-2); }
+.nav-item.is-small::before { width: 10px; height: 10px; margin-top: -5px; left: calc(var(--x) - 5px); border-width: 2.5px; }
+.nav-item.is-small:hover, .nav-item.is-small:focus-visible { color: var(--ink); }
+
+.nav-item:disabled { color: var(--text-3); background: rgba(255, 255, 255, 0.09); }
+
+/* Появление: заголовок поднимается, линия «прорисовывается» сверху вниз,
+   станции выезжают слева по очереди, поезд и билет — последними */
+.menu:not(.is-hidden) .menu-title { animation: menu-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.05s both; }
+.menu:not(.is-hidden) .menu-tag { animation: menu-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s both; }
+.menu:not(.is-hidden) .menu-nav::before { animation: line-draw 0.8s cubic-bezier(0.6, 0, 0.3, 1) 0.15s both; }
+.menu:not(.is-hidden) .nav-item {
+    animation: station-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(0.18s + var(--i, 0) * 0.06s);
+}
+.menu:not(.is-hidden) .menu-train { animation: menu-fade 0.4s ease 0.7s both; }
+.menu:not(.is-hidden) .menu-play { animation: menu-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s both; }
+
+@keyframes menu-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes line-draw { from { transform: scaleY(0); } }
+@keyframes station-in { from { opacity: 0; transform: translateX(-48px); } }
+@keyframes menu-fade { from { opacity: 0; } }
+
+/* Подпись к фото справа сверху: «—— Кок-Тобе, закат  3/7» */
+.menu-photo {
+    position: absolute;
+    top: 34px;
+    right: 34px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    text-shadow: var(--shadow-text);
+}
+
+.menu-photo::before {
+    content: '';
+    width: 26px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.8);
+    transition: width 0.3s;
+}
+
+.menu-photo:hover::before { width: 42px; }
+.menu-photo i { font-style: normal; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.menu-photo.is-new span { animation: menu-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+.nav-item em {
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: var(--text-2);
+}
+
+.nav-item em { margin-left: auto; }
+
+/* Подсказка клавиш не нужна на телефоне (там нет клавиатуры) */
+@media (hover: none) {
+    .nav-item .kbd { display: none; }
+}
+
+.menu-play {
+    position: absolute;
+    right: 56px;
+    bottom: 44px;
+    z-index: 2;
+}
+
+/* ---------- Голубой «билет»: слева «Играть» и режим, справа корешок со стрелкой ----------
+   Полукруглые вырезы на линии отрыва сделаны маской, тень — через filter (маска её не режет) */
+.ticket {
+    display: flex;
+    align-items: stretch;
+    color: var(--ink);
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.16));
+    transition: transform 0.2s;
+}
+
+.ticket-main, .ticket-stub { background: var(--primary); transition: background 0.2s, transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+.ticket-main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+    min-width: 196px;
+    padding: 12px 30px 13px 26px;
+    border-radius: 20px 0 0 20px;
+    text-align: left;
+    -webkit-mask: radial-gradient(circle at 100% 0, transparent 8px, #000 8.5px) top / 100% 51% no-repeat,
+                  radial-gradient(circle at 100% 100%, transparent 8px, #000 8.5px) bottom / 100% 51% no-repeat;
+    mask: radial-gradient(circle at 100% 0, transparent 8px, #000 8.5px) top / 100% 51% no-repeat,
+          radial-gradient(circle at 100% 100%, transparent 8px, #000 8.5px) bottom / 100% 51% no-repeat;
+}
+
+.ticket-main b { font-size: 18px; font-weight: 600; letter-spacing: -0.2px; }
+.ticket-main small { font-size: 12px; font-weight: 500; color: rgba(31, 36, 41, 0.6); white-space: nowrap; }
+
+/* Корешок: пунктир — линия отрыва; крутится от нижнего левого угла */
+.ticket-stub {
+    display: grid;
+    place-items: center;
+    width: 62px;
+    border-radius: 0 20px 20px 0;
+    border-left: 2px dashed rgba(31, 36, 41, 0.3);
+    transform-origin: 0 100%;
+    -webkit-mask: radial-gradient(circle at 0 0, transparent 8px, #000 8.5px) top / 100% 51% no-repeat,
+                  radial-gradient(circle at 0 100%, transparent 8px, #000 8.5px) bottom / 100% 51% no-repeat;
+    mask: radial-gradient(circle at 0 0, transparent 8px, #000 8.5px) top / 100% 51% no-repeat,
+          radial-gradient(circle at 0 100%, transparent 8px, #000 8.5px) bottom / 100% 51% no-repeat;
+}
+
+.ticket-stub svg { width: 22px; height: 22px; stroke-width: 2; transition: transform 0.25s; }
+
+.ticket:hover .ticket-main, .ticket:hover .ticket-stub,
+.ticket:focus-visible .ticket-main, .ticket:focus-visible .ticket-stub { background: var(--primary-hover); }
+/* Наведение — корешок «почти оторвался» */
+.ticket:hover .ticket-stub, .ticket:focus-visible .ticket-stub { transform: rotate(6deg) translate(3px, -1px); }
+.ticket:hover .ticket-stub svg { transform: translateX(3px); }
+.ticket:active { transform: scale(0.97); }
+.ticket:focus-visible { outline: none; filter: drop-shadow(0 0 0 #fff) drop-shadow(0 0 3px #fff); }
+
+/* Нажали — корешок отрывается и падает */
+.ticket.is-torn .ticket-stub { animation: ticket-tear 0.7s cubic-bezier(0.5, 0, 0.75, 0.4) forwards; }
+@keyframes ticket-tear {
+    30% { transform: rotate(14deg) translate(6px, -4px); }
+    to { transform: rotate(40deg) translate(60px, 90px); opacity: 0; }
+}
+
+/* ============================================================
+   Игра: элементы поверх карты
+   ============================================================ */
+
+/* Слева сверху: кнопка меню и где мы */
+.hud-place {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.place {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 40px;
+    padding: 0 16px 0 12px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.place svg { width: 17px; height: 17px; }
+
+/* Сверху по центру: режимы. Белая «таблетка» плавно едет под выбранный */
+.modes {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    padding: 4px;
+    border-radius: 999px;
+}
+
+.modes-pill {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    width: 0;
+    border-radius: 999px;
+    background: var(--white);
+    transition: transform 0.35s cubic-bezier(0.3, 1.2, 0.5, 1), width 0.35s cubic-bezier(0.3, 1.2, 0.5, 1);
+}
+
+.mode {
+    position: relative;
+    padding: 8px 24px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--white);
+    white-space: nowrap;
+    transition: color 0.25s;
+}
+
+.mode.is-active { color: var(--ink); }
+
+/* ---------- Круглая иконка с подписью ---------- */
+.ring-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 2px;
+    transition: opacity 0.2s;
+}
+
+.ring {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1.6px solid rgba(255, 255, 255, 0.92);
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+
+.ring svg { width: 22px; height: 22px; }
+.ring-label { font-size: 11.5px; font-weight: 500; color: rgba(255, 255, 255, 0.92); white-space: nowrap; }
+
+.ring-btn:hover:not(:disabled) .ring { background: rgba(255, 255, 255, 0.18); transform: scale(1.05); }
+.ring-btn.is-active .ring { background: var(--white); color: var(--ink); }
+.ring-btn:disabled { opacity: 0.45; }
+
+/* ---------- Цель игры (слева сверху) ---------- */
+.goal {
+    position: fixed;
+    left: 18px;
+    top: 70px;
+    z-index: 10;
+    width: 250px;
+    padding: 14px 18px;
+    border-radius: var(--round);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.goal-top, .goal-sub { font-size: 11.5px; color: var(--text-2); }
+.goal-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; color: var(--text-2); }
+.goal-row > b { font-size: 26px; font-weight: 600; color: var(--white); line-height: 1; }
+.goal-row span b { color: var(--white); font-weight: 600; }
+.goal-bar { height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+.goal-bar span { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--primary); transition: width 0.6s ease; }
+.goal.is-done .goal-bar span { background: #7fe0a6; }
+
+/* Креатив: переключатель «сразу / месяцами» во всю ширину, кварталов до срока нет.
+   В истории срок у каждой главы свой — он написан в карточке цели */
+.goal-seg { margin: 4px 0 0; }
+.goal-seg button { flex: 1; white-space: nowrap; }
+body.is-creative .quarters, body.is-story .quarters { display: none; }
+
+/* ---------- Подсказчик обучения (сверху по центру) ---------- */
+.coach {
+    position: fixed;
+    top: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    width: min(440px, calc(100vw - 24px));
+    padding: 16px 20px 16px;
+    border-radius: var(--round);
+    background: var(--glass-strong);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    animation: toast-in 0.4s cubic-bezier(0.3, 1.3, 0.5, 1);
+    transition: border-color 0.3s;
+}
+
+.coach.is-passed { border-color: #7fe0a6; }
+.coach-count { font-size: 11.5px; color: var(--text-2); letter-spacing: 0.3px; }
+.coach-title { margin-top: 2px; font-size: 18px; font-weight: 600; }
+.coach-text { margin-top: 6px; font-size: 13.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.88); }
+.coach-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.coach-actions .btn-primary, .coach-actions #coachNext { margin-left: auto; }
+.coach-actions button { white-space: nowrap; }
+.btn-tiny { padding: 5px 12px; font-size: 12px; border-color: rgba(255, 255, 255, 0.4); color: var(--text-2); }
+
+/* Пока виден подсказчик — сообщения ниже него */
+body.has-coach .toasts { top: 250px; }
+
+/* Подсветка кнопки, о которой говорит подсказчик: голубое «дыхание» */
+.coach-target { animation: coach-pulse 1.6s ease-in-out infinite; }
+
+@keyframes coach-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--primary), 0 0 0 4px rgba(169, 213, 246, 0.35); }
+    50% { box-shadow: 0 0 0 2px var(--primary), 0 0 0 12px rgba(169, 213, 246, 0); }
+}
+
+/* ---------- Окно-вопрос: надпись над заголовком и доп. блок (выбор сложности) ---------- */
+.dialog-kicker { display: block; font-size: 12px; color: var(--text-2); letter-spacing: 0.3px; margin-bottom: 4px; }
+.dialog-kicker:empty { display: none; }
+.dialog-extra { margin-top: 14px; }
+.dialog-extra:empty { display: none; }
+.dialog-goal { padding: 10px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.1); font-size: 13.5px; line-height: 1.5; }
+.dialog-goal b { font-weight: 600; }
+.dialog-extra .seg { margin: 10px 0 0; }
+.dialog-extra .seg button { flex: 1; }
+.dialog-note { margin-top: 8px; font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
+
+/* ---------- Время и скорость (слева внизу) ---------- */
+.clock {
+    position: fixed;
+    left: 18px;
+    bottom: 22px;
+    z-index: 10;
+    width: 250px;
+    padding: 14px 18px;
+    border-radius: var(--round);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.clock-row { display: flex; align-items: flex-end; justify-content: space-between; }
+.clock-date { display: flex; flex-direction: column; }
+.clock-date small { font-size: 11.5px; color: var(--text-2); letter-spacing: 0.5px; }
+.clock-date b { font-size: 22px; font-weight: 600; line-height: 1.15; }
+.clock-season { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.season-icon svg { width: 22px; height: 22px; color: #ffd36b; }
+
+.speeds { display: flex; justify-content: space-between; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); }
+
+.speeds button {
+    width: 34px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.speeds button svg { width: 17px; height: 17px; fill: currentColor; }
+.speeds button[data-speed="0"] svg { fill: none; stroke-width: 2.4; }
+.speeds button:hover { background: rgba(255, 255, 255, 0.16); }
+.speeds button.is-active { background: var(--white); color: var(--ink); }
+
+.quarters { display: flex; justify-content: space-between; padding: 0 2px; }
+.quarters i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.28); }
+.quarters i.is-past { background: var(--white); }
+.quarters i.is-now { background: var(--primary); box-shadow: 0 0 0 2px rgba(169, 213, 246, 0.35); }
+
+/* ---------- Сообщения (видны и поверх меню — например, «Сохранено в файл») ---------- */
+.toasts {
+    position: fixed;
+    top: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 97;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--glass-strong);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    font-size: 13.5px;
+    white-space: nowrap;
+    animation: toast-in 0.4s cubic-bezier(0.3, 1.3, 0.5, 1);
+    transition: opacity 0.5s, transform 0.5s;
+}
+
+.toast b { font-weight: 600; }
+.toast.is-out { opacity: 0; transform: translateY(-8px); }
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+}
+
+/* ---------- Окно конца игры ---------- */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    background: rgba(90, 98, 106, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+/* Окно поверх главного меню (загрузка из файла) */
+.modal.is-top { z-index: 95; }
+
+.modal-card {
+    width: min(460px, calc(100vw - 32px));
+    padding: 28px 28px 24px;
+    border-radius: 30px;
+    background: rgba(70, 77, 86, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.modal-title { font-size: 26px; font-weight: 600; }
+.modal-text { margin-top: 8px; font-size: 14px; color: var(--text-2); line-height: 1.5; }
+
+.modal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin: 18px 0;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.modal-stats div { display: flex; flex-direction: column; gap: 2px; }
+.modal-stats small { font-size: 11.5px; color: var(--text-2); }
+.modal-stats b { font-size: 18px; font-weight: 600; }
+
+.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.modal-actions button { white-space: nowrap; }
+.modal-actions .btn-primary { margin-left: auto; }
+
+@media (max-width: 480px) {
+    .modal-actions .btn-primary { order: -1; width: 100%; margin: 0 0 4px; }
+    .modal-actions .btn-line { flex: 1; }
+}
+
+/* ---------- Слои (слева) ---------- */
+.layers {
+    position: fixed;
+    left: 18px;
+    top: 196px;
+    z-index: 10;
+    width: 250px;
+    padding: 18px 16px 16px;
+    border-radius: var(--round);
+    transition: opacity 0.3s, transform 0.35s;
+}
+
+.layer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+/* ---------- Легенда слоя ---------- */
+.legend {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+}
+
+.legend-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #3fbf6f, #f5c542 40%, #e5484d 72%, #8b1a2b);
+}
+
+.legend-scale { display: flex; justify-content: space-between; font-size: 11px; }
+.legend-big { font-size: 26px; font-weight: 600; color: var(--white); line-height: 1; }
+.legend-note { font-weight: 400; line-height: 1.45; }
+
+.legend-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.legend-chip {
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: var(--pill);
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.2s, color 0.2s;
+}
+
+.legend-chip:hover { background: var(--pill-hover); }
+.legend-chip.is-active { background: var(--white); color: var(--ink); }
+
+.legend-list { display: grid; gap: 5px; }
+.legend-row { display: flex; align-items: center; gap: 8px; color: var(--white); }
+.legend-sw { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+
+/* ---------- Подсказка о клетке ---------- */
+.tip {
+    position: fixed;
+    z-index: 20;
+    pointer-events: none;
+    padding: 11px 15px;
+    border-radius: 18px;
+    background: var(--glass-strong);
+    font-size: 12px;
+    line-height: 1.55;
+    max-width: 270px;
+    transform: translate(14px, 14px);
+}
+
+.tip b { font-size: 13px; font-weight: 600; }
+.tip .muted { color: var(--text-2); }
+.tip .tag { display: inline-block; padding: 0 8px; border-radius: 999px; color: #fff; font-weight: 500; margin-right: 3px; }
+
+/* ---------- Справа внизу: бюджет и камера ---------- */
+.hud-corner {
+    position: fixed;
+    right: 18px;
+    bottom: 36px; /* ниже — подпись авторов карты */
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+/* Бюджет — в серой «таблетке», чтобы читался на светлой карте */
+.money {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 18px;
+    border-radius: 999px;
+}
+
+.money span { font-size: 20px; font-weight: 600; }
+.money small { font-size: 12.5px; color: var(--text-2); }
+
+/* Камера — «таблетка» с круглыми кнопками */
+.camera {
+    display: flex;
+    gap: 2px;
+    padding: 5px;
+    border-radius: 999px;
+}
+
+.icon-btn {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--white);
+    transition: background 0.2s, transform 0.2s;
+}
+
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.icon-btn:active { transform: scale(0.92); }
+
+.tilt-label { font-size: 13px; font-weight: 600; }
+.compass { transition: transform 0.1s linear; }
+.compass .needle-n { fill: var(--metro); stroke: var(--metro); }
+.compass .needle-s { fill: rgba(255, 255, 255, 0.75); stroke: rgba(255, 255, 255, 0.75); }
+
+/* ---------- Снизу: инструменты режима ---------- */
+/* Круглые иконки — значит и панель круглая, «таблеткой» */
+.dock {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translate(-50%, 0);
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+    padding: 7px;
+    border-radius: 999px;
+    max-width: calc(100vw - 24px);
+    transition: opacity 0.3s, transform 0.35s cubic-bezier(0.3, 1.2, 0.5, 1);
+}
+
+/* Инструмент: кольцо своего цвета, подпись — только при наведении */
+.tool { position: relative; padding: 0; }
+.tool .ring { border-color: var(--c); border-width: 2px; }
+.tool:hover:not(:disabled) .ring { background: var(--c); }
+.tool:disabled { opacity: 0.75; }
+
+.tool.is-active .ring { background: var(--c); box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18); }
+
+.tool[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 14px);
+    padding: 6px 13px;
+    border-radius: 999px;
+    background: rgba(48, 54, 62, 0.86);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 6px);
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+}
+
+.tool[data-tip]:hover::after,
+.tool[data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+
+/* На телефоне наведения нет, а «залипшее» касание показывало бы подпись не к месту:
+   подпись видна только у выбранного инструмента */
+@media (hover: none) {
+    .tool[data-tip]:hover::after { opacity: 0; transform: translate(-50%, 6px); }
+    .tool.is-active[data-tip]::after { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Кнопка списка — только на телефоне (на компьютере список всегда справа) */
+.list-btn { display: none; }
+.list-btn .ring { border-color: rgba(255, 255, 255, 0.9); }
+.list-btn:hover:not(:disabled) .ring { background: rgba(255, 255, 255, 0.18); }
+.list-btn.is-active .ring { background: var(--white); color: var(--ink); }
+
+/* ---------- Кнопка-контур (как «Reset to Default» в InZOI) ---------- */
+.btn-line {
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-line:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+.btn-line:disabled { opacity: 0.4; }
+.btn-small { padding: 9px 30px; font-size: 14px; }
+.btn-primary:disabled { opacity: 0.45; transform: none; cursor: default; }
+
+/* ---------- Переключатель-«таблетки» ---------- */
+.seg { display: flex; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); margin-left: auto; }
+
+.seg button {
+    padding: 5px 13px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.2s, color 0.2s;
+}
+
+.seg button.is-active { background: var(--white); color: var(--ink); }
+
+/* ---------- Панель новой линии ---------- */
+.draw {
+    position: fixed;
+    left: 50%;
+    bottom: 100px;
+    transform: translateX(-50%);
+    z-index: 11;
+    width: min(560px, calc(100vw - 24px));
+    padding: 16px 22px;
+    border-radius: var(--round);
+    background: var(--glass-strong);
+}
+
+.draw-head { display: flex; align-items: center; gap: 10px; }
+.draw-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8); }
+.draw-title { font-size: 15px; font-weight: 600; }
+
+.draw-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    margin: 12px 0 10px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.draw-stats div { display: flex; flex-direction: column; gap: 2px; }
+.draw-stats small { font-size: 11px; color: var(--text-2); }
+.draw-stats b { font-size: 16px; font-weight: 600; }
+
+.draw-msg { font-size: 13px; color: var(--text-2); min-height: 18px; }
+.draw-msg.is-bad { color: #ffb4b6; }
+
+.draw-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.draw-actions .btn-primary { margin-left: auto; }
+.draw-stats b.is-bad { color: #ffb4b6; }
+
+/* ---------- Панель стройки: этажи, модели, уровень дороги ---------- */
+.b-opts { margin-top: 12px; }
+.b-opts:empty { display: none; }
+
+.b-range { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-2); }
+.b-range b { min-width: 32px; text-align: right; font-size: 16px; font-weight: 600; color: var(--white); }
+
+/* Ползунок: тонкая белая дорожка, белый кружок */
+.b-range input {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(90deg, var(--white) var(--p, 0%), rgba(255, 255, 255, 0.25) var(--p, 0%));
+    outline: none;
+    cursor: pointer;
+}
+
+.b-range input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--white);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+}
+
+.b-range input::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--white); }
+
+/* Список готовых зданий: прокручивается вниз, края мягко тают */
+.b-picks {
+    max-height: 232px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+    padding: 2px 4px 10px 0;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 16px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 16px), transparent 100%);
+}
+
+.b-picks::-webkit-scrollbar { width: 6px; }
+.b-picks::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 999px; }
+
+.b-group { margin: 10px 4px 6px; font-size: 11.5px; font-weight: 500; color: var(--text-2); letter-spacing: 0.3px; }
+.b-group:first-child { margin-top: 4px; }
+.b-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+
+.b-pick {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 7px 12px 7px 7px;
+    border-radius: 18px;
+    background: var(--pill);
+    text-align: left;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+
+/* Круглая иконка здания — как кольца инструментов */
+.b-ico {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.8);
+    transition: border-color 0.2s;
+}
+
+.b-ico svg { width: 19px; height: 19px; stroke-width: 1.5; }
+.b-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.b-txt b { font-size: 13px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.b-txt small { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.b-pick:hover { background: var(--pill-hover); }
+.b-pick:active { transform: scale(0.98); }
+.b-pick.is-active { background: var(--white); color: var(--ink); }
+.b-pick.is-active .b-ico { border-color: var(--ink); }
+.b-pick.is-active small { color: rgba(31, 36, 41, 0.6); }
+
+/* ---------- Режим расстановки: маленькая панель со стрелками ---------- */
+.bedit {
+    position: fixed;
+    left: 50%;
+    bottom: 100px;
+    transform: translateX(-50%);
+    z-index: 11;
+    width: min(480px, calc(100vw - 24px));
+    padding: 14px 18px 12px;
+    border-radius: var(--round);
+    background: var(--glass-strong);
+}
+
+.bedit-head { display: flex; align-items: center; gap: 10px; }
+
+.bedit-back {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    transition: background 0.2s;
+}
+
+.bedit-back svg { width: 18px; height: 18px; stroke-width: 2; }
+.bedit-back:hover { background: rgba(255, 255, 255, 0.26); }
+.bedit-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bedit-name b { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bedit-name small { font-size: 12px; color: var(--text-2); }
+
+.bedit-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.bedit-stats span { padding: 4px 10px; border-radius: 999px; background: var(--pill); font-size: 12px; font-weight: 500; }
+
+.bedit-msg { margin-top: 8px; font-size: 13px; color: var(--text-2); min-height: 18px; }
+.bedit-msg.is-ok { color: #a6ebbd; }
+.bedit-msg.is-bad { color: #ffb4b6; }
+
+.bedit-row { display: flex; align-items: flex-end; gap: 14px; margin-top: 10px; }
+
+/* Крестик стрелок: вверх — сверху, влево/вниз/вправо — рядом */
+.bedit-pad { display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(2, 34px); gap: 4px; }
+.pad-up { grid-column: 2; grid-row: 1; }
+.pad-left { grid-column: 1; grid-row: 2; }
+.pad-down { grid-column: 2; grid-row: 2; }
+.pad-right { grid-column: 3; grid-row: 2; }
+.bedit-rot { display: flex; gap: 6px; }
+
+.bedit-pad button, .bedit-rot button {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.bedit-pad svg, .bedit-rot svg { width: 18px; height: 18px; stroke-width: 2; }
+.bedit-pad button:hover, .bedit-rot button:hover { background: rgba(255, 255, 255, 0.26); }
+.bedit-pad button:active, .bedit-rot button:active { background: var(--white); color: var(--ink); transform: scale(0.92); }
+
+.bedit-actions { display: flex; gap: 8px; margin-left: auto; }
+.bedit-hint { display: block; margin-top: 10px; font-size: 11.5px; color: var(--text-3); }
+.bedit-hint.touch, .bedit.is-touch .bedit-hint { display: none; }
+.bedit.is-touch .bedit-hint.touch { display: block; }
+
+/* ---------- Плавное появление окон ---------- */
+.draw:not([hidden]), .bedit:not([hidden]) { animation: panel-in 0.4s cubic-bezier(0.25, 1.2, 0.5, 1); }
+.b-opts > * { animation: fade-in 0.3s ease; }
+.modal:not([hidden]) { animation: fade-in 0.25s ease; }
+.modal:not([hidden]) .modal-card { animation: card-in 0.42s cubic-bezier(0.25, 1.2, 0.5, 1); }
+.legend:not([hidden]) { animation: drop-in 0.3s ease; }
+
+@keyframes panel-in {
+    from { opacity: 0; transform: translate(-50%, 18px) scale(0.97); }
+}
+
+@keyframes card-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.96); }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+}
+
+@keyframes drop-in {
+    from { opacity: 0; transform: translateY(-6px); }
+}
+
+@keyframes sheet-in {
+    from { opacity: 0; transform: translateY(24px); }
+}
+
+/* Кто попросил систему меньше анимаций — без них */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+.b-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-2); }
+.b-row .seg { margin-left: 0; }
+
+/* ---------- Список линий (справа) ---------- */
+.lines {
+    position: fixed;
+    right: 18px;
+    top: 72px;
+    z-index: 10;
+    width: 270px;
+    max-height: calc(100vh - 230px);
+    overflow-y: auto;
+    padding: 16px 12px 12px;
+    border-radius: var(--round);
+    scrollbar-width: thin;
+    transition: opacity 0.3s;
+}
+
+.lines-head { font-size: 13px; font-weight: 600; padding: 0 6px 8px; border-bottom: 1px solid var(--line); }
+.lines-head span { color: var(--text-2); font-weight: 400; }
+.lines-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.lines-empty { font-size: 12px; color: var(--text-2); padding: 8px 6px; line-height: 1.45; }
+
+.line-row {
+    display: grid;
+    grid-template-columns: 4px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 9px 10px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.line-row:hover { background: rgba(255, 255, 255, 0.1); }
+.line-row.is-selected { background: rgba(255, 255, 255, 0.16); }
+.line-bar { align-self: stretch; border-radius: 2px; }
+.line-main b { display: block; font-size: 13px; font-weight: 600; }
+.line-main small { font-size: 11.5px; color: var(--text-2); }
+.line-cost { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+
+.line-more {
+    grid-column: 2 / 4;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-2);
+}
+
+.line-more .btn-line { padding: 4px 12px; font-size: 12px; }
+.line-more .btn-line.is-danger { border-color: #ff9a9e; color: #ffd0d2; }
+.line-more .btn-line.is-sure { background: #e5484d; border-color: #e5484d; color: #fff; }
+
+/* Подсказка режима наблюдения */
+.watch-hint {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    white-space: nowrap;
+    transition: opacity 0.3s;
+}
+
+/* Панель видна только в своём режиме */
+[data-for] { opacity: 0; pointer-events: none; }
+.dock[data-for] { transform: translate(-50%, 30px); }
+body[data-mode="transport"] [data-for="transport"],
+body[data-mode="build"] [data-for="build"],
+body[data-mode="watch"] [data-for="watch"] { opacity: 1; pointer-events: auto; }
+body[data-mode="transport"] .dock[data-for="transport"],
+body[data-mode="build"] .dock[data-for="build"] { transform: translate(-50%, 0); }
+
+/* В наблюдении остаются только место, цель, время, режимы и камера */
+body[data-mode="watch"] .layers { opacity: 0; pointer-events: none; transform: translateX(-20px); }
+
+/* ============================================================
+   Экран загрузки
+   ============================================================ */
+.loader {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: var(--menu-grey);
+    transition: opacity 0.8s ease, visibility 0.8s;
+    overflow: hidden;
+}
+
+.loader.is-done { opacity: 0; visibility: hidden; }
+
+.loader-scene { position: absolute; inset: -40px; }
+
+.loader-scene svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    stroke: none;
+}
+
+.loader-scene .layer-g { will-change: transform; }
+
+.loader-center {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-shadow: var(--shadow-text);
+}
+
+.loader-logo { font-size: 44px; font-weight: 600; letter-spacing: -0.8px; }
+.loader-sub { font-size: 14px; color: var(--text-2); }
+.loader-text { margin-top: 22px; font-size: 15px; min-width: 120px; text-align: center; }
+
+.dots::after {
+    content: '';
+    display: inline-block;
+    width: 1.2em;
+    text-align: left;
+    animation: dots 1.4s steps(4) infinite;
+}
+
+@keyframes dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+}
+
+.loader-bar {
+    width: 220px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.loader-fill {
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--white);
+    transition: width 0.4s ease;
+}
+
+/* Узкий экран компьютера: название района налезало на режимы — прячем его */
+@media (max-width: 1000px) {
+    .place { display: none; }
+}
+
+/* ============================================================
+   Телефон
+   ============================================================ */
+@media (max-width: 760px) {
+    .page-head { top: 16px; left: 16px; font-size: 17px; }
+    .menu-body { top: auto; bottom: 120px; transform: none; }
+    .menu-title { margin-left: 24px; font-size: 34px; }
+    .menu-tag { margin: 6px 24px 22px; }
+    .menu-nav { gap: 10px; }
+    .menu-nav { --x: 27px; }
+    .nav-item { min-width: 0; width: calc(100vw - 24px); padding-left: 52px; font-size: 16px; }
+    .nav-item:hover:not(:disabled), .nav-item:focus-visible { padding-left: 58px; }
+    .nav-item.is-small { font-size: 14px; }
+    .menu-veil { background: linear-gradient(0deg, rgba(104, 112, 120, 0.92) 0%, rgba(120, 128, 136, 0.6) 55%, rgba(140, 147, 154, 0.15) 85%); }
+    .menu-play { left: 20px; right: 20px; bottom: 28px; }
+    .ticket-main { flex: 1; }
+    .menu-photo { top: 70px; right: 16px; font-size: 13px; }
+
+    /* --sat / --sab — отступы под вырез экрана и полоску «домой» на iPhone */
+    .hud-place { top: calc(10px + var(--sat)); left: 10px; }
+    .place { display: none; }
+    .modes { top: calc(10px + var(--sat)); left: 60px; transform: none; }
+    .mode { padding: 8px 10px; font-size: 12.5px; }
+
+    .layers { top: auto; bottom: calc(120px + var(--sab)); left: 10px; transform: none; width: auto; padding: 10px; }
+    .goal { top: calc(58px + var(--sat)); left: 10px; width: auto; max-width: calc(100vw - 170px); padding: 8px 14px; gap: 4px; }
+    .goal-top, .goal-sub { display: none; }
+    /* В истории глава и срок важны — показываем коротко */
+    body.is-story .goal-top { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .goal-row > b { font-size: 20px; }
+    .goal-row { font-size: 12px; }
+    .goal-row > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .goal-bar { width: 140px; }
+    .clock { top: calc(58px + var(--sat)); bottom: auto; left: auto; right: 10px; width: auto; padding: 8px 12px; gap: 6px; }
+    .clock-season, .quarters, .clock-date small { display: none; }
+    .clock-date b { font-size: 15px; }
+    .speeds button { width: 28px; height: 26px; }
+    .toasts { top: calc(150px + var(--sat)); }
+    .toast { white-space: normal; text-align: center; max-width: calc(100vw - 24px); border-radius: 20px; }
+    /* Подсказчик — под часами и бюджетом, не закрывает кнопки слоёв и камеры */
+    .coach { top: calc(180px + var(--sat)); padding: 14px 16px; }
+    .coach-text { font-size: 13px; }
+    .coach-actions .btn-line { padding: 6px 12px; font-size: 12px; }
+    .coach-actions .btn-small { padding: 8px 20px; }
+    body.has-coach .toasts { top: calc(380px + var(--sat)); }
+    .layer-grid { grid-template-columns: 1fr; gap: 8px; }
+    .ring { width: 40px; height: 40px; }
+    .ring-label { font-size: 10px; }
+    .legend { display: none !important; }
+    body[data-mode="watch"] .layers { transform: translateX(-20px); }
+
+    .hud-corner { right: 10px; bottom: calc(120px + var(--sab)); }
+    .camera { flex-direction: column; }
+    /* Бюджет на телефоне — маленькая «таблетка» под часами */
+    .hud-corner .money { position: fixed; top: calc(138px + var(--sat)); right: 10px; padding: 6px 14px; gap: 8px; }
+    .money span { font-size: 15px; }
+    .money small { font-size: 11px; }
+
+    .dock { bottom: calc(14px + var(--sab)); gap: 10px; padding: 6px; }
+    body.is-drawing .layers, body.is-drawing .hud-corner { display: none; }
+    .draw { bottom: calc(80px + var(--sab)); padding: 12px 14px; }
+    .draw-stats b { font-size: 14px; }
+    .b-picks { max-height: 180px; }
+    .bedit { bottom: calc(80px + var(--sab)); padding: 12px 14px; }
+    .bedit-row { flex-wrap: wrap; }
+    .bedit-pad { grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(2, 40px); }
+    .bedit-pad button, .bedit-rot button { width: 40px; height: 40px; }
+    .bedit-row { gap: 10px; }
+    .bedit-actions .btn-line { padding: 7px 12px; }
+    .bedit-actions .btn-small { padding: 9px 18px; }
+    .b-pick { padding: 6px 8px 6px 6px; gap: 8px; }
+    .b-ico { width: 30px; height: 30px; }
+    .b-txt b { font-size: 12px; }
+    .draw-actions .btn-line { padding: 7px 12px; }
+    .seg button { padding: 5px 9px; }
+    .watch-hint { bottom: calc(14px + var(--sab)); white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 32px); }
+    .tip { left: 50% !important; top: calc(180px + var(--sat)) !important; transform: translateX(-50%); }
+
+    /* Список линий / построек — по кнопке в нижней панели, выезжает снизу */
+    .lines { display: none; }
+    .list-btn { display: flex; }
+    .list-btn::after { display: none; }
+    body.show-list .lines {
+        display: block;
+        left: 10px;
+        right: 10px;
+        top: auto;
+        bottom: calc(80px + var(--sab));
+        width: auto;
+        max-height: 46vh;
+        z-index: 12;
+        animation: sheet-in 0.35s cubic-bezier(0.25, 1.2, 0.5, 1);
+    }
+    body.show-list.is-drawing .lines { display: none; }
+
+    .loader-logo { font-size: 34px; }
+}
