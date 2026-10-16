@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#8f969e">
+    <title>AlmaMetro</title>
+
+    <!-- Шрифт Inter (есть кириллица) — лёгкий и чистый, как в InZOI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+
+    <!-- MapLibre GL — бесплатная 3D-карта (данные OpenStreetMap, без ключей) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <!-- ?v=N — версия файла: меняйте число при каждом изменении -->
+    <link rel="stylesheet" href="css/style.css?v=15">
+</head>
+<body data-mode="transport">
+
+    <!-- ===== Экран загрузки: серый фон, сзади Алматы двигается за мышкой (js/loader.js) ===== -->
+    <div class="loader" id="loader">
+        <div class="loader-scene" id="loaderScene" aria-hidden="true"></div>
+        <div class="loader-center">
+            <div class="loader-logo">AlmaMetro</div>
+            <div class="loader-sub">Метро · ЛРТ · SkyTrain</div>
+            <div class="loader-text" id="loaderText">Загрузка<span class="dots"></span></div>
+            <div class="loader-bar"><div class="loader-fill" id="loaderFill"></div></div>
+        </div>
+    </div>
+
+    <!-- ===== Главное меню: фото Алматы сменяются справа налево и двигаются за мышкой (js/menu.js) ===== -->
+    <div class="menu" id="menu">
+        <div class="menu-bg" id="menuBg" aria-hidden="true"></div>
+        <div class="menu-veil" aria-hidden="true"></div>
+
+        <!-- Шапка как в InZOI: круглая кнопка «назад» | название -->
+        <header class="page-head">
+            <a class="back-btn" href="../../index.html" aria-label="На главную сайта">
+                <svg viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg>
+            </a>
+            <span class="page-head-text">Сайт</span>
+            <span class="page-head-sep"></span>
+            <span class="page-head-title">AlmaMetro</span>
+        </header>
+
+        <!-- Подпись к фото справа сверху; нажал — следующее фото -->
+        <button class="menu-photo" type="button" id="menuPhoto" title="Следующее фото">
+            <span id="menuPhotoName"></span><i id="menuPhotoNum"></i>
+        </button>
+
+        <div class="menu-body">
+            <h1 class="menu-title">AlmaMetro</h1>
+            <p class="menu-tag">Метро, ЛРТ и SkyTrain на настоящей карте Алматы</p>
+
+            <!-- Пункты — станции на схеме линии: слева кружки на белой линии,
+                 к наведённой станции подъезжает «поезд» цвета режима.
+                 У свободной игры и креатива — свои сохранения (js/store.js) -->
+            <nav class="menu-nav" id="menuNav">
+                <i class="menu-train" id="menuTrain" aria-hidden="true"></i>
+                <button class="nav-item" type="button" data-action="free" style="--c: var(--metro)">Свободная игра<em id="badgeFree" hidden></em></button>
+                <button class="nav-item" type="button" data-action="creative" style="--c: var(--sky)" title="Без денег и срока — строй что хочешь">Креатив<em id="badgeCreative" hidden></em></button>
+                <button class="nav-item" type="button" data-action="story" style="--c: var(--lrt)" title="Обучение и главы с разными целями">История и обучение<em id="badgeStory" hidden></em></button>
+                <button class="nav-item is-small" type="button" data-action="save" id="navSave" hidden>Сохранить в файл<em class="kbd">Ctrl+S</em></button>
+                <button class="nav-item is-small" type="button" data-action="load">Загрузить из файла</button>
+                <button class="nav-item is-small" type="button" data-action="restart" id="navRestart" style="--c: #ff8a80" hidden>Начать заново</button>
+            </nav>
+        </div>
+
+        <!-- Главная кнопка — голубой «билет» справа внизу: продолжить последний режим.
+             При нажатии корешок отрывается -->
+        <button class="ticket menu-play" type="button" data-action="play" id="menuPlay">
+            <span class="ticket-main">
+                <b id="menuPlayText">Играть</b>
+                <small id="menuPlayMode">свободная игра</small>
+            </span>
+            <span class="ticket-stub" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5"/></svg>
+            </span>
+        </button>
+    </div>
+
+    <!-- ===== 3D-карта (js/map.js) ===== -->
+    <div class="map" id="map"></div>
+
+    <!-- ===== Слева сверху: меню и где мы ===== -->
+    <div class="hud-place">
+        <button class="back-btn" type="button" id="menuBtn" title="Главное меню (Esc)" aria-label="Открыть главное меню">
+            <svg viewBox="0 0 24 24"><path d="M5 8h14M5 12h14M5 16h14"/></svg>
+        </button>
+        <div class="place glass-dark">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
+            <span id="place">Алматы</span>
+        </div>
+    </div>
+
+    <!-- ===== Цель игры (слева, под местом) ===== -->
+    <div class="goal glass-dark" id="goal">
+        <small class="goal-top" id="goalTop">Цель · до 1 января 2032</small>
+        <div class="goal-row"><b id="goalNow">—</b><span><span id="goalWhat">загрузка дорог</span> → <b id="goalTarget">45%</b></span></div>
+        <div class="goal-bar"><span id="goalFill"></span></div>
+        <small class="goal-sub" id="goalSub">Считаем, кто как ездит…</small>
+        <!-- Только в креативе: стройка сразу или по-настоящему, месяцами -->
+        <div class="seg goal-seg" id="instantSeg" role="radiogroup" aria-label="Как строить" hidden>
+            <button type="button" data-instant="1">Строить сразу</button>
+            <button type="button" data-instant="0">Месяцами</button>
+        </div>
+    </div>
+
+    <!-- ===== Время и скорость (слева внизу, как в InZOI) ===== -->
+    <div class="clock glass-dark" id="clock">
+        <div class="clock-row">
+            <div class="clock-date"><small id="clockYear">2027</small><b id="clockDate">1 января</b></div>
+            <div class="clock-season"><span class="season-icon" id="seasonIcon"></span><span id="clockSeason">зима</span></div>
+        </div>
+        <div class="speeds" id="speeds" role="radiogroup" aria-label="Скорость игры">
+            <button type="button" data-speed="0" title="Пауза (пробел)" aria-label="Пауза">
+                <svg viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></svg>
+            </button>
+            <button type="button" data-speed="1" title="Скорость ×1 (1)" aria-label="Скорость 1">
+                <svg viewBox="0 0 24 24"><path d="M9 6l8 6-8 6z"/></svg>
+            </button>
+            <button type="button" data-speed="2" title="Скорость ×2 (2)" aria-label="Скорость 2">
+                <svg viewBox="0 0 24 24"><path d="M5 6l7 6-7 6zM12 6l7 6-7 6z"/></svg>
+            </button>
+            <button type="button" data-speed="3" title="Скорость ×3 (3)" aria-label="Скорость 3">
+                <svg viewBox="0 0 24 24"><path d="M3 7l5.5 5L3 17zM9.5 7l5.5 5-5.5 5zM16 7l5.5 5-5.5 5z"/></svg>
+            </button>
+        </div>
+        <!-- Точки — кварталы до срока: прошедшие белые, текущий голубой -->
+        <div class="quarters" id="quarters"></div>
+    </div>
+
+    <!-- Сообщения игры (линия открылась, новый бюджет…) -->
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <!-- Конец игры -->
+    <div class="modal" id="endModal" hidden>
+        <div class="modal-card">
+            <h2 class="modal-title" id="endTitle">Цель выполнена!</h2>
+            <p class="modal-text" id="endText"></p>
+            <div class="modal-stats" id="endStats"></div>
+            <div class="modal-actions">
+                <button class="btn-line" type="button" id="endMenu">В меню</button>
+                <button class="btn-line" type="button" id="endRestart">Начать заново</button>
+                <button class="btn-primary btn-small" type="button" id="endContinue">Продолжить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Окно-вопрос поверх всего: загрузка из файла, главы истории (наполняет js/app.js) -->
+    <div class="modal is-top" id="dialog" hidden>
+        <div class="modal-card">
+            <small class="dialog-kicker" id="dialogKicker"></small>
+            <h2 class="modal-title" id="dialogTitle"></h2>
+            <p class="modal-text" id="dialogText"></p>
+            <div class="dialog-extra" id="dialogExtra"></div>
+            <div class="modal-stats" id="dialogStats"></div>
+            <div class="modal-actions" id="dialogActions"></div>
+        </div>
+    </div>
+
+    <!-- Подсказчик обучения (js/story.js) -->
+    <section class="coach" id="coach" hidden aria-live="polite">
+        <small class="coach-count" id="coachCount"></small>
+        <h3 class="coach-title" id="coachTitle"></h3>
+        <p class="coach-text" id="coachText"></p>
+        <div class="coach-actions">
+            <button class="btn-line btn-tiny" type="button" id="coachSkip">Пропустить обучение</button>
+            <button class="btn-primary btn-small" type="button" id="coachNext">Дальше</button>
+        </div>
+    </section>
+
+    <!-- ===== Сверху по центру: режимы ===== -->
+    <nav class="modes glass-dark" id="modes" role="tablist" aria-label="Режимы">
+        <span class="modes-pill" id="modesPill" aria-hidden="true"></span>
+        <button class="mode" type="button" role="tab" data-mode="transport">Транспорт</button>
+        <button class="mode" type="button" role="tab" data-mode="build">Строительство</button>
+        <button class="mode" type="button" role="tab" data-mode="watch">Наблюдение</button>
+    </nav>
+
+    <!-- ===== Слева: слои карты (круглые иконки, как панель нужд в InZOI) ===== -->
+    <aside class="layers glass-dark" aria-label="Слои карты">
+        <div class="layer-grid">
+            <button class="ring-btn layer is-active" type="button" data-layer="map">
+                <span class="ring"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg></span>
+                <span class="ring-label">Карта</span>
+            </button>
+            <button class="ring-btn layer" type="button" data-layer="traffic" disabled>
+                <span class="ring"><svg viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.2"/></svg></span>
+                <span class="ring-label">Загрузка</span>
+            </button>
+            <button class="ring-btn layer" type="button" data-layer="terrain" disabled>
+                <span class="ring"><svg viewBox="0 0 24 24"><path d="M3 19l6-10 4 6 2-3 6 7z"/><path d="M8.2 10.4l1.8 1.6 1.4-1.2"/></svg></span>
+                <span class="ring-label">Местность</span>
+            </button>
+        </div>
+        <!-- Пояснение к выбранному слою (js/app.js) -->
+        <div class="legend" id="legend" hidden></div>
+    </aside>
+
+    <!-- Подсказка о клетке под курсором -->
+    <div class="tip glass-dark" id="tip" hidden></div>
+
+    <!-- ===== Справа внизу: бюджет + камера ===== -->
+    <div class="hud-corner">
+        <div class="money glass-dark" title="Бюджет на транспорт и сколько прибавляется за месяц (билеты минус обслуживание)">
+            <span id="money">₸ —</span>
+            <small id="moneyDelta"></small>
+        </div>
+        <div class="camera glass-dark" aria-label="Камера">
+            <button class="icon-btn" type="button" id="camZoomIn" title="Приблизить" aria-label="Приблизить">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button class="icon-btn" type="button" id="camZoomOut" title="Отдалить" aria-label="Отдалить">
+                <svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+            </button>
+            <button class="icon-btn" type="button" id="camTilt" title="3D / вид сверху" aria-label="Переключить 3D и вид сверху">
+                <span class="tilt-label" id="camTiltLabel">2D</span>
+            </button>
+            <button class="icon-btn" type="button" id="camNorth" title="На север" aria-label="Повернуть на север">
+                <svg viewBox="0 0 24 24" class="compass" id="compass"><path d="M12 3l4 9h-8z" class="needle-n"/><path d="M12 21l-4-9h8z" class="needle-s"/></svg>
+            </button>
+            <button class="icon-btn" type="button" id="camHome" title="К центру Алматы" aria-label="Вернуться к центру Алматы">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== Снизу по центру: инструменты режима ===== -->
+    <!-- Подписи (data-tip) появляются при наведении -->
+    <!-- Транспорт: выбираешь вид — и рисуешь линию на карте (js/draw.js) -->
+    <section class="dock glass-dark" data-for="transport" aria-label="Транспорт">
+        <button class="ring-btn tool" type="button" data-tool="metro" disabled style="--c: var(--metro)" data-tip="Метро" aria-label="Новая линия метро">
+            <span class="ring"><svg viewBox="0 0 24 24"><path d="M4 18l4-12 4 8 4-8 4 12"/></svg></span>
+        </button>
+        <button class="ring-btn tool" type="button" data-tool="lrt" disabled style="--c: var(--lrt)" data-tip="ЛРТ" aria-label="Новая линия ЛРТ">
+            <span class="ring"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="12" rx="3"/><path d="M8 20l2-4M16 20l-2-4M3 20h18"/></svg></span>
+        </button>
+        <button class="ring-btn tool" type="button" data-tool="sky" disabled style="--c: var(--sky)" data-tip="SkyTrain" aria-label="Новая линия SkyTrain">
+            <span class="ring"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="7" rx="3"/><path d="M2 12h20M7 12v9M17 12v9"/></svg></span>
+        </button>
+        <!-- Только на телефоне: список линий открывается снизу -->
+        <button class="ring-btn tool list-btn" type="button" data-list aria-label="Список линий">
+            <span class="ring"><svg viewBox="0 0 24 24"><path d="M9 7h10M9 12h10M9 17h10M5 7h.01M5 12h.01M5 17h.01"/></svg></span>
+        </button>
+    </section>
+
+    <!-- Панель новой линии: цифры, подсказка, кнопки -->
+    <section class="draw glass-dark" id="draw" hidden aria-label="Новая линия">
+        <div class="draw-head">
+            <span class="draw-dot" id="drawDot"></span>
+            <span class="draw-title" id="drawTitle">Новая линия</span>
+            <div class="seg" role="radiogroup" aria-label="Что ставить кликом">
+                <button type="button" data-node="station" class="is-active">Станция</button>
+                <button type="button" data-node="bend" title="Изгиб пути без станции (клавиша B)">Поворот</button>
+            </div>
+        </div>
+        <div class="draw-stats">
+            <div><small>Станций</small><b id="drawSt">0</b></div>
+            <div><small>Длина</small><b id="drawKm">0 км</b></div>
+            <div><small>Стоимость</small><b id="drawCost">0 млрд ₸</b></div>
+            <div><small>Стройка</small><b id="drawMonths">—</b></div>
+        </div>
+        <div class="draw-msg" id="drawMsg"></div>
+        <div class="draw-actions">
+            <button class="btn-line" type="button" id="drawUndo">Шаг назад</button>
+            <button class="btn-line" type="button" id="drawCancel">Отмена</button>
+            <button class="btn-primary btn-small" type="button" id="drawDone" disabled>Построить</button>
+        </div>
+    </section>
+
+    <!-- Список линий (справа) -->
+    <aside class="lines glass-dark" id="linesPanel" data-for="transport" aria-label="Линии">
+        <div class="lines-head">Линии <span id="linesCount"></span></div>
+        <div class="lines-list" id="linesList"></div>
+    </aside>
+
+    <!-- Строительство: свои здания, готовые модели, дороги и мосты (js/builder.js) -->
+    <section class="dock glass-dark" data-for="build" aria-label="Строительство">
+        <button class="ring-btn tool" type="button" data-build="custom" disabled style="--c: var(--accent)" data-tip="Своё здание" aria-label="Своё здание">
+            <span class="ring"><svg viewBox="0 0 24 24"><path d="M6 21V7l6-4 6 4v14M3 21h18M10 11h4M10 15h4"/></svg></span>
+        </button>
+        <button class="ring-btn tool" type="button" data-build="model" disabled style="--c: #f2b15a" data-tip="Готовые здания" aria-label="Готовые здания">
+            <span class="ring"><svg viewBox="0 0 24 24"><path d="M12 2l1.5 6h-3zM10.5 8h3l1 13h-5z M8 21h8"/></svg></span>
+        </button>
+        <button class="ring-btn tool" type="button" data-build="road" disabled style="--c: #c3cad4" data-tip="Дороги и мосты" aria-label="Дороги и мосты">
+            <span class="ring"><svg viewBox="0 0 24 24"><path d="M8 3L5 21M16 3l3 18M12 4v3M12 11v3M12 18v2"/></svg></span>
+        </button>
+        <!-- Только на телефоне: список построек открывается снизу -->
+        <button class="ring-btn tool list-btn" type="button" data-list aria-label="Список построек">
+            <span class="ring"><svg viewBox="0 0 24 24"><path d="M9 7h10M9 12h10M9 17h10M5 7h.01M5 12h.01M5 17h.01"/></svg></span>
+        </button>
+    </section>
+
+    <!-- Панель стройки: что строим, цифры, подсказка, кнопки (наполняет js/builder.js) -->
+    <section class="draw glass-dark" id="bpanel" hidden aria-label="Стройка">
+        <div class="draw-head">
+            <span class="draw-dot" id="bDot"></span>
+            <span class="draw-title" id="bTitle">Стройка</span>
+            <div class="seg" id="bSeg" role="radiogroup"></div>
+        </div>
+        <div class="b-opts" id="bOpts"></div>
+        <div class="draw-stats" id="bStats"></div>
+        <div class="draw-msg" id="bMsg"></div>
+        <div class="draw-actions">
+            <button class="btn-line" type="button" id="bUndo">Шаг назад</button>
+            <button class="btn-line" type="button" id="bRotate">Повернуть (R)</button>
+            <button class="btn-line" type="button" id="bCancel">Отмена</button>
+            <button class="btn-primary btn-small" type="button" id="bDone" disabled>Построить</button>
+        </div>
+    </section>
+
+    <!-- Режим расстановки готового здания: маленькая панель вместо большого меню -->
+    <section class="bedit glass-dark" id="bedit" hidden aria-label="Расстановка здания">
+        <div class="bedit-head">
+            <button class="bedit-back" type="button" id="beList" title="К списку зданий (Esc)" aria-label="К списку зданий">
+                <svg viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg>
+            </button>
+            <span class="b-ico" id="beIco"></span>
+            <div class="bedit-name"><b id="beName"></b><small id="beSub"></small></div>
+        </div>
+        <div class="bedit-stats" id="beStats"></div>
+        <div class="bedit-msg" id="beMsg"></div>
+        <div class="bedit-row">
+            <!-- Крестик стрелок: вверх / влево-вниз-вправо (по экрану) -->
+            <div class="bedit-pad" role="group" aria-label="Двигать здание">
+                <button type="button" data-move="up" class="pad-up" title="Вперёд (↑)" aria-label="Вперёд"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+                <button type="button" data-move="left" class="pad-left" title="Влево (←)" aria-label="Влево"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+                <button type="button" data-move="down" class="pad-down" title="Назад (↓)" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+                <button type="button" data-move="right" class="pad-right" title="Вправо (→)" aria-label="Вправо"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </div>
+            <div class="bedit-rot" role="group" aria-label="Повернуть здание">
+                <button type="button" data-rot="-1" title="Повернуть влево (Q)" aria-label="Повернуть влево"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/></svg></button>
+                <button type="button" data-rot="1" title="Повернуть вправо (E)" aria-label="Повернуть вправо"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v4h-4"/></svg></button>
+            </div>
+            <div class="bedit-actions">
+                <button class="btn-line" type="button" id="beCancel">Отмена</button>
+                <button class="btn-primary btn-small" type="button" id="beDone" disabled>Построить</button>
+            </div>
+        </div>
+        <small class="bedit-hint">Двигай стрелками или тяни здание мышкой · Q/E — повернуть · Enter — построить</small>
+        <small class="bedit-hint touch">Двигай кнопками или тяни здание пальцем</small>
+    </section>
+
+    <!-- Список своих построек (справа, в режиме строительства) -->
+    <aside class="lines glass-dark" id="buildsPanel" data-for="build" aria-label="Постройки">
+        <div class="lines-head">Постройки <span id="buildsCount"></span></div>
+        <div class="lines-list" id="buildsList"></div>
+    </aside>
+
+    <!-- Наблюдение: панелей нет, камера облетает город -->
+    <div class="watch-hint glass-dark" data-for="watch">
+        Камера облетает город · потяни карту, чтобы остановить
+    </div>
+
+    <script type="module" src="js/app.js?v=19"></script>
+</body>
+</html>
