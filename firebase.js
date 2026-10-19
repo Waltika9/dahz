@@ -3,17 +3,19 @@
 // поэтому здесь доступна функция showToast из script.js.
 //
 // Все проекты хранятся в Firestore, в коллекции projects:
-//   title, link, tag, image, author, ownerUid, approved, eternal, visible, status, order
+//   title, link, tag, image, author, ownerUid, approved, eternal, visible, status, order, rank
+// rank — место в рейтинге владельца (1 — лучший), для сортировки «лучшие / худшие».
 // Что кому можно — решают правила Firestore (Firestore → Rules в консоли Firebase).
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    deleteUser, signOut, onAuthStateChanged
+    deleteUser, signOut, onAuthStateChanged, sendPasswordResetEmail,
+    EmailAuthProvider, reauthenticateWithCredential, updatePassword, verifyBeforeUpdateEmail
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
     getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDoc, getDocs, updateDoc,
-    writeBatch, query, where, orderBy, limit, startAfter, arrayUnion, serverTimestamp, Timestamp
+    writeBatch, query, where, orderBy, limit, startAfter, arrayUnion, serverTimestamp, Timestamp, increment
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import * as gh from './github.js?v=5';
 
@@ -47,7 +49,35 @@ const PERMS = {
     status:     '🔄 Менять статус',
     visibility: '👁 Скрывать и показывать',
     create:     '➕ Создавать проекты',
-    activity:   '📊 Смотреть активность'
+    activity:   '📊 Смотреть активность',
+    rank:       '🏆 Менять рейтинг'
+};
+
+// Тестовый пользователь — «пустышка» в окне «Пользователи». Настоящего аккаунта у него нет:
+// права хранятся только в браузере владельца, а в его режиме ничего не сохраняется в базу
+const TEST_NAME = 'Тестовый пользователь';
+const TEST_KEY = 'dahz_test_user';
+
+// Коды приглашения: invites/{код} = { limit, used, note, createdAt }.
+// limit — сколько аккаунтов можно зарегистрировать по коду (0 — без ограничений)
+const INVITE_LIMIT_MAX = 1000;
+const INVITE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // без похожих 0/O и 1/I
+
+// Доступ к аккаунтам других пользователей (members/{uid}.perms.accounts):
+// view — видеть ники и email; edit — ещё менять ники и отправлять письмо для сброса пароля.
+// Сами пароли не видит никто: Firebase хранит их только в зашифрованном виде.
+const ACCOUNT_LEVELS = {
+    none: 'нет доступа',
+    view: 'смотреть логины',
+    edit: 'смотреть и менять'
+};
+
+// Виды сортировки (меню между поиском и темой). first — по умолчанию и после обновления страницы
+const SORTS = {
+    first: { label: 'Сначала первые', icon: 'images/sort-time.png' },
+    new:   { label: 'Сначала новые',  icon: 'images/sort-time.png', mirror: true },
+    best:  { label: 'Сначала лучшие', icon: 'images/sort-star.png' },
+    worst: { label: 'Сначала худшие', icon: 'images/sort-star.png', dim: true }
 };
 
 // Статистика посещений (коллекция visits): одна запись = один заход в браузере.
@@ -112,16 +142,43 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const projectsCol = collection(db, 'projects');
 const visitsCol = collection(db, 'visits');
+const invitesCol = collection(db, 'invites');
 
 const $ = (id) => document.getElementById(id);
 
 const projectCards = $('projectCards');
-const accountBar = $('accountBar');
 const createProjectBtn = $('createProjectBtn');
 const tokenBtn = $('tokenBtn');
 const usersBtn = $('usersBtn');
 const usersModal = $('usersModal');
 const usersList = $('usersList');
+const usersHint = $('usersHint');
+
+const accountModal = $('accountModal');
+const accountWho = $('accountWho');
+const viewEditBtn = $('viewEditBtn');
+const viewGuestBtn = $('viewGuestBtn');
+const viewTestBtn = $('viewTestBtn');
+const viewHint = $('viewHint');
+const invitesBtn = $('invitesBtn');
+const invitesModal = $('invitesModal');
+const invitesList = $('invitesList');
+const inviteForm = $('inviteForm');
+const inviteCode = $('inviteCode');
+const inviteLimit = $('inviteLimit');
+const inviteNote = $('inviteNote');
+const rankBtn = $('rankBtn');
+const rankModal = $('rankModal');
+const rankList = $('rankList');
+const rankSaveBtn = $('rankSaveBtn');
+const securityModal = $('securityModal');
+const passwordForm = $('passwordForm');
+const emailForm = $('emailForm');
+
+const sortBtn = $('sortBtn');
+const sortIcon = $('sortIcon');
+const sortMenu = $('sortMenu');
+const sortOptions = $('sortOptions');
 const activityBtn = $('activityBtn');
 const activityModal = $('activityModal');
 const activityList = $('activityList');
@@ -177,6 +234,18 @@ let member = null;       // данные из members/{uid}: { nickname, perms, 
 let unsubExtra = null;
 let unsubMember = null;
 let seeding = false;
+let sortMode = 'first';  // не запоминается: после обновления страницы снова «Сначала первые»
+
+// Вид страницы для вошедшего (запоминается в этом браузере):
+//   edit  — обычный, с кнопками управления;
+//   guest — как у посетителя без аккаунта;
+//   test  — глазами тестового пользователя (только владелец).
+let viewMode = storageGet(localStorage, 'dahz_view_mode')
+    || (storageGet(localStorage, 'dahz_guest_view') === '1' ? 'guest' : 'edit');
+if (!['edit', 'guest', 'test'].includes(viewMode)) viewMode = 'edit';
+
+// Права тестового пользователя
+let testPerms = loadTestPerms();
 
 // ===== ПОМОЩНИКИ =====
 
@@ -215,7 +284,49 @@ function can(perm) {
     return isAdmin || member?.perms?.[perm] === true;
 }
 
-// Все проекты: встроенные + из базы, отсортированные по order
+// Доступ к чужим аккаунтам: 'none' | 'view' | 'edit' (у владельца — всё)
+function accountsAccess() {
+    if (isAdmin) return 'edit';
+    return levelOf(member?.perms?.accounts);
+}
+
+function levelOf(value) {
+    return Object.hasOwn(ACCOUNT_LEVELS, value || '') ? value : 'none';
+}
+
+// ----- Тестовый пользователь -----
+function loadTestPerms() {
+    let saved = {};
+    try { saved = JSON.parse(storageGet(localStorage, TEST_KEY) || '{}') || {}; } catch { /* испорчено — с нуля */ }
+    const perms = {};
+    for (const k of Object.keys(PERMS)) perms[k] = saved[k] === true;
+    perms.accounts = levelOf(saved.accounts);
+    return perms;
+}
+
+function saveTestPerms(changes) {
+    testPerms = { ...testPerms, ...changes };
+    storageSet(localStorage, TEST_KEY, JSON.stringify(testPerms));
+    render();
+    showToast(`${TEST_NAME}: права обновлены`, 'success');
+}
+
+// ----- Режимы просмотра -----
+// asGuest / asTest — какой вид страницы сейчас включён
+const asGuest = () => !!currentUser && viewMode === 'guest';
+const asTest = () => isAdmin && viewMode === 'test';
+
+// Что видно на странице (карточки проектов)
+const viewAdmin = () => isAdmin && viewMode === 'edit';
+const viewCan = (perm) => !asGuest() && (asTest() ? testPerms[perm] === true : can(perm));
+const viewOwner = (p) => !asGuest() && !asTest() && isOwner(p);
+
+// Что доступно в меню «Управление аккаунтом» (в режиме гостя — свои настоящие права)
+const menuAdmin = () => isAdmin && !asTest();
+const menuCan = (perm) => (asTest() ? testPerms[perm] === true : can(perm));
+const menuAccounts = () => (asTest() ? testPerms.accounts : accountsAccess());
+
+// Все проекты: встроенные + из базы, в порядке выбранной сортировки
 function allProjects() {
     const map = {};
     for (const [id, data] of Object.entries(BUILTIN_PROJECTS)) {
@@ -224,9 +335,24 @@ function allProjects() {
     for (const [id, data] of Object.entries({ ...approvedDocs, ...extraDocs })) {
         map[id] = { ...PROJECT_DEFAULTS, ...map[id], ...data };
     }
-    return Object.entries(map)
-        .map(([id, p]) => ({ id, ...p }))
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
+    return sortProjects(Object.entries(map).map(([id, p]) => ({ id, ...p })));
+}
+
+// order — когда проект появился (у встроенных 1, 2, 3..., у новых — время создания)
+function sortProjects(list) {
+    const byOrder = (a, b) => (a.order || 0) - (b.order || 0);
+    if (sortMode === 'new') return list.sort((a, b) => byOrder(b, a));
+    if (sortMode === 'best' || sortMode === 'worst') {
+        // проекты без места в рейтинге — в конце, по порядку появления
+        const dir = sortMode === 'best' ? 1 : -1;
+        return list.sort((a, b) => {
+            const ra = Number(a.rank) > 0, rb = Number(b.rank) > 0;
+            if (ra && rb) return (a.rank - b.rank) * dir;
+            if (ra !== rb) return ra ? -1 : 1;
+            return byOrder(a, b);
+        });
+    }
+    return list.sort(byOrder);
 }
 
 function pendingRequests() {
@@ -242,7 +368,15 @@ function button(text, className, onClick) {
     return btn;
 }
 
+// Глазами тестового пользователя кнопки только показывают, что ему доступно
+function testBlocked() {
+    if (!asTest()) return false;
+    showToast('Это режим тестового пользователя: изменения не сохраняются', 'info');
+    return true;
+}
+
 async function run(action, successText) {
+    if (testBlocked()) return;
     try {
         await action();
         if (successText) showToast(successText, 'success');
@@ -254,17 +388,17 @@ async function run(action, successText) {
 
 // ===== ОТРИСОВКА =====
 function render() {
-    document.body.classList.toggle('is-admin', isAdmin);
+    document.body.classList.toggle('is-admin', viewAdmin());
     projectCards.innerHTML = '';
 
     allProjects().forEach(p => {
-        const canSeePending = isAdmin || isOwner(p);
+        const canSeePending = viewAdmin() || viewOwner(p);
         if (!p.approved && !canSeePending) return;      // заявка — только автору и владельцу
-        if (p.approved && !p.visible && !can('visibility')) return; // скрытый — владельцу и тем, кто может показать
+        if (p.approved && !p.visible && !viewCan('visibility')) return; // скрытый — владельцу и тем, кто может показать
         projectCards.appendChild(buildCard(p));
     });
 
-    renderAccountBar();
+    renderAccountMenu();
 }
 
 function buildCard(p) {
@@ -325,11 +459,11 @@ function buildCard(p) {
         card.appendChild(img);
     }
 
-    // Панель управления
+    // Панель управления (в режиме «как гость» её нет)
     let panel = null;
-    if (isAdmin) panel = adminPanel(p);
-    else if (!p.approved) panel = isOwner(p) ? ownerPanel(p) : null;
-    else if (can('status') || can('visibility')) panel = helperPanel(p);
+    if (viewAdmin()) panel = adminPanel(p);
+    else if (!p.approved) panel = viewOwner(p) ? ownerPanel(p) : null;
+    else if (viewCan('status') || viewCan('visibility')) panel = helperPanel(p);
     if (panel) {
         // Карточка — это ссылка, поэтому клик по панели не должен открывать проект
         panel.addEventListener('click', (e) => {
@@ -341,7 +475,7 @@ function buildCard(p) {
 
     card.addEventListener('click', (e) => {
         // Посетитель кликает по проекту со статусом — вместо перехода показываем плашку
-        if (!isAdmin && p.status !== 'ok') {
+        if (!viewAdmin() && p.status !== 'ok') {
             e.preventDefault();
             showToast((STATUSES[p.status] || STATUSES.dev).message, 'warning');
             return;
@@ -432,11 +566,11 @@ function helperPanel(p) {
     const panel = document.createElement('div');
     panel.className = 'admin-panel';
 
-    if (can('visibility')) {
+    if (viewCan('visibility')) {
         panel.appendChild(button(p.visible ? '👁 Скрыть' : '🙈 Показать', 'admin-btn',
             () => saveFields(p.id, { visible: !p.visible })));
     }
-    if (can('status')) {
+    if (viewCan('status')) {
         Object.entries(STATUSES).forEach(([key, s]) => {
             const btn = button(`${s.icon} ${s.label}`, 'admin-btn', () => saveFields(p.id, { status: key }));
             btn.classList.toggle('active', key === p.status);
@@ -458,23 +592,99 @@ function ownerPanel(p) {
     return panel;
 }
 
-function renderAccountBar() {
-    const show = isAdmin || !!member;
-    accountBar.hidden = !show;
-    tokenBtn.hidden = !isAdmin;
-    usersBtn.hidden = !isAdmin;
-    activityBtn.hidden = !can('activity');
-    if (!show) return;
+// ===== МЕНЮ «УПРАВЛЕНИЕ АККАУНТОМ» =====
+// Кнопка в шапке: гость — «Войти», вошедший — «Управление аккаунтом» (в любом режиме просмотра)
+const VIEW_HINTS = {
+    edit: 'Видны кнопки управления на карточках: статусы, скрытие, изменение.',
+    guest: 'Страница выглядит так, как её видят посетители без аккаунта: без кнопок управления, скрытых проектов и заявок.',
+    test: `Страница и это меню — глазами тестового пользователя. Его права настраиваются в «Пользователях». ` +
+          'Кнопки только показывают, что ему доступно: изменения не сохраняются.'
+};
 
-    if (isAdmin) {
+function renderAccountMenu() {
+    loginBtn.textContent = currentUser ? 'Управление аккаунтом' : LOGIN_BTN_TEXT;
+    // режим тестового — только у владельца, у остальных он работает как обычный
+    const shown = viewMode === 'test' && !isAdmin ? 'edit' : viewMode;
+
+    createProjectBtn.hidden = !menuAdmin() && !member && !asTest();
+    rankBtn.hidden = !menuCan('rank');
+    tokenBtn.hidden = !menuAdmin();
+    invitesBtn.hidden = !menuAdmin();
+    usersBtn.hidden = menuAccounts() === 'none';
+    activityBtn.hidden = !menuCan('activity');
+    $('securityBtn').hidden = asTest();   // свой пароль владелец меняет в обычном режиме
+
+    if (menuAdmin()) {
         createProjectBtn.textContent = '➕ Создать проект';
         tokenBtn.textContent = gh.getToken() ? '🔑 Токен GitHub ✓' : '🔑 Токен GitHub';
-    } else if (can('create')) {
+    } else if (menuCan('create')) {
         createProjectBtn.textContent = '➕ Создать проект';
     } else {
-        createProjectBtn.textContent = `➕ Предложить проект (${pendingRequests().length}/${MAX_REQUESTS})`;
+        const used = asTest() ? 0 : pendingRequests().length;
+        createProjectBtn.textContent = `➕ Предложить проект (${used}/${MAX_REQUESTS})`;
     }
+
+    // Кто вошёл и какой сейчас вид страницы
+    const name = isAdmin ? ADMIN_NAME : (member?.nickname || 'без никнейма');
+    accountWho.textContent = !currentUser ? ''
+        : asTest() ? `Вы смотрите как 🧪 ${TEST_NAME} (на самом деле вошёл ${name})`
+        : `Вы вошли как ${name} (${currentUser.email || 'без email'})`;
+    viewTestBtn.hidden = !isAdmin;
+    for (const [btn, mode] of [[viewEditBtn, 'edit'], [viewGuestBtn, 'guest'], [viewTestBtn, 'test']]) {
+        btn.classList.toggle('active', shown === mode);
+        btn.setAttribute('aria-checked', String(shown === mode));
+    }
+    viewHint.textContent = VIEW_HINTS[shown];
 }
+
+function openAccountMenu() {
+    renderAccountMenu();
+    accountModal.classList.add('active');
+}
+
+function closeAccountMenu() {
+    accountModal.classList.remove('active');
+}
+
+const VIEW_TOASTS = {
+    edit: 'Режим редактирования включён',
+    guest: 'Теперь страница выглядит как для гостя',
+    test: `Теперь вы смотрите как ${TEST_NAME}`
+};
+
+function setViewMode(mode) {
+    if (mode === 'test' && !isAdmin) return;
+    if (mode === viewMode) return;
+    viewMode = mode;
+    storageSet(localStorage, 'dahz_view_mode', mode);
+    // окна, которые в новом режиме могут быть недоступны, закрываем
+    closeUsers();
+    closeActivity();
+    closeInvites();
+    rankModal.classList.remove('active');
+    render();
+    showToast(VIEW_TOASTS[mode], 'info');
+}
+
+viewEditBtn.addEventListener('click', () => setViewMode('edit'));
+viewGuestBtn.addEventListener('click', () => setViewMode('guest'));
+viewTestBtn.addEventListener('click', () => setViewMode('test'));
+
+// Кнопки меню открывают свои окна, а само меню закрывается
+for (const btn of [createProjectBtn, rankBtn, usersBtn, activityBtn, tokenBtn, invitesBtn, $('securityBtn')]) {
+    btn.addEventListener('click', closeAccountMenu);
+}
+
+$('logoutBtn').addEventListener('click', async () => {
+    closeAccountMenu();
+    await signOut(auth);
+    showToast('Вы вышли из аккаунта', 'info');
+});
+
+$('closeAccountBtn').addEventListener('click', closeAccountMenu);
+accountModal.addEventListener('click', (e) => {
+    if (e.target === accountModal) closeAccountMenu();
+});
 
 // ===== ДЕЙСТВИЯ С ПРОЕКТАМИ =====
 
@@ -518,14 +728,14 @@ let projectMode = null;   // { mode: 'create' | 'edit' | 'request', project }
 
 function openProjectModal(mode, project = null) {
     projectMode = { mode, project };
-    projectModal.classList.toggle('member-form', !isAdmin);
+    projectModal.classList.toggle('member-form', !menuAdmin());
 
     projectModalTitle.textContent =
         mode === 'edit' ? 'Изменить проект' : (mode === 'create' ? 'Новый проект' : 'Заявка на проект');
     projectSubmit.textContent = mode === 'edit' ? 'Сохранить' : (mode === 'create' ? 'Создать' : 'Отправить заявку');
 
     projTitle.value = project?.title || '';
-    projLink.value = project?.link || (isAdmin && mode === 'create' ? 'projects/' : '');
+    projLink.value = project?.link || (menuAdmin() && mode === 'create' ? 'projects/' : '');
     projAuthor.value = project?.author || ADMIN_NAME;
     projImage.value = '';
     projCreateFile.checked = true;
@@ -541,11 +751,12 @@ function closeProjectModal() {
 }
 
 function updateCreateFileRow() {
-    projCreateFileRow.hidden = !(isAdmin && projLink.value.trim().startsWith('projects/'));
+    projCreateFileRow.hidden = !(menuAdmin() && projLink.value.trim().startsWith('projects/'));
 }
 projLink.addEventListener('input', updateCreateFileRow);
 
 createProjectBtn.addEventListener('click', () => {
+    if (asTest()) return openProjectModal(menuCan('create') ? 'create' : 'request');   // только посмотреть форму
     if (isAdmin) return openProjectModal('create');
     if (!member?.nickname) {
         showToast('У аккаунта нет никнейма — обратитесь к Waltika');
@@ -572,7 +783,7 @@ async function uploadImage(file, link) {
 
 projectForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!projectMode) return;
+    if (!projectMode || testBlocked()) return;
     const { mode, project } = projectMode;
 
     const title = projTitle.value.trim();
@@ -687,7 +898,7 @@ tokenForm.addEventListener('submit', async (e) => {
         gh.setToken(token);
         tokenModal.classList.remove('active');
         showToast('Токен сохранён в этом браузере', 'success');
-        renderAccountBar();
+        renderAccountMenu();
     } catch {
         showToast('Не удалось проверить токен — нет интернета?');
     } finally {
@@ -701,7 +912,7 @@ $('tokenRemoveBtn').addEventListener('click', () => {
     gh.setToken('');
     tokenModal.classList.remove('active');
     showToast('Токен удалён из этого браузера', 'info');
-    renderAccountBar();
+    renderAccountMenu();
 });
 
 $('closeTokenBtn').addEventListener('click', () => tokenModal.classList.remove('active'));
@@ -709,14 +920,132 @@ tokenModal.addEventListener('click', (e) => {
     if (e.target === tokenModal) tokenModal.classList.remove('active');
 });
 
-// ===== ПОЛЬЗОВАТЕЛИ И ПРАВА (только владелец) =====
+// ===== ПОЛЬЗОВАТЕЛИ И ПРАВА =====
+// Владелец — всё. Доступ «смотреть логины» — ники и email.
+// «Смотреть и менять» — ещё смена ника и письмо для сброса пароля.
 let unsubMembers = null;
+
+const accountLevelOf = (u) => levelOf(u.perms?.accounts);
+
+// Всегда записываем все права целиком — так проще проверять в правилах
+function savePerms(u, changes) {
+    const next = {};
+    for (const k of Object.keys(PERMS)) next[k] = u.perms?.[k] === true;
+    next.accounts = accountLevelOf(u);
+    Object.assign(next, changes);
+    return run(() => setDoc(doc(db, 'members', u.id), { perms: next }, { merge: true }),
+        `${u.nickname}: права обновлены`);
+}
+
+// Галочки прав и выбор доступа к аккаунтам. onChange({ ключ: значение }) сохраняет изменение
+function permsEditor(perms, onChange) {
+    const box = document.createElement('div');
+    box.className = 'user-perms';
+    Object.entries(PERMS).forEach(([key, label]) => {
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.checked = perms?.[key] === true;
+        check.addEventListener('change', () => onChange({ [key]: check.checked }));
+        const lbl = document.createElement('label');
+        lbl.className = 'check-row';
+        lbl.append(check, label);
+        box.appendChild(lbl);
+    });
+
+    // Доступ к аккаунтам других пользователей
+    const select = document.createElement('select');
+    select.className = 'perm-select';
+    for (const [key, label] of Object.entries(ACCOUNT_LEVELS)) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        select.appendChild(opt);
+    }
+    select.value = levelOf(perms?.accounts);
+    select.addEventListener('change', () => onChange({ accounts: select.value }));
+    const lbl = document.createElement('label');
+    lbl.className = 'check-row';
+    lbl.append('👤 Аккаунты:', select);
+    box.appendChild(lbl);
+    return box;
+}
+
+// Строка «Тестовый пользователь»: всегда первая, видит только владелец
+function testUserRow() {
+    const row = document.createElement('div');
+    row.className = 'user-row is-test';
+
+    const head = document.createElement('div');
+    head.className = 'user-head';
+    const name = document.createElement('div');
+    name.className = 'user-name';
+    name.textContent = `🧪 ${TEST_NAME}`;
+    head.append(name, button('🔀 Переключиться', 'admin-btn', () => {
+        closeUsers();
+        setViewMode('test');
+    }));
+
+    const meta = document.createElement('div');
+    meta.className = 'user-meta';
+    meta.textContent = 'Пустышка, а не настоящий аккаунт. Отметь права и переключись на него, ' +
+        'чтобы увидеть сайт его глазами. Права хранятся только в этом браузере.';
+
+    row.append(head, meta, permsEditor(testPerms, saveTestPerms));
+    return row;
+}
+
+// Ник меняется прямо в строке пользователя
+function editNickname(u, nameEl) {
+    const wrap = document.createElement('div');
+    wrap.className = 'nick-edit';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'login-input';
+    input.maxLength = 30;
+    input.value = u.nickname || '';
+    const save = () => {
+        const nickname = input.value.trim();
+        if (nickname.length < 2) {
+            showToast('Никнейм — минимум 2 символа');
+            return;
+        }
+        run(() => updateDoc(doc(db, 'members', u.id), { nickname }), 'Никнейм изменён');
+    };
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') save();
+        if (e.key === 'Escape') {
+            e.stopPropagation();
+            wrap.replaceWith(nameEl);
+        }
+    });
+    wrap.append(input, button('💾', 'admin-btn', save), button('✖', 'admin-btn', () => wrap.replaceWith(nameEl)));
+    nameEl.replaceWith(wrap);
+    input.focus();
+}
+
+function resetPassword(u) {
+    if (!u.email) {
+        showToast('У этого пользователя не записан email');
+        return;
+    }
+    openConfirm({
+        title: 'Сбросить пароль?',
+        text: `На ${u.email} придёт письмо со ссылкой, по которой ${u.nickname || 'пользователь'} сам задаст новый пароль. ` +
+              'Пока он этого не сделает, старый пароль работает.',
+        yesText: 'Отправить письмо',
+        onYes: () => run(() => sendPasswordResetEmail(auth, u.email), 'Письмо для сброса пароля отправлено')
+    });
+}
 
 function renderUsers(snap) {
     usersList.innerHTML = '';
+    const level = menuAccounts();
+    const admin = menuAdmin();
     const users = [];
     snap.forEach(d => users.push({ id: d.id, ...d.data() }));
     users.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || '', 'ru'));
+
+    if (admin) usersList.appendChild(testUserRow());
 
     if (users.length === 0) {
         const empty = document.createElement('p');
@@ -734,54 +1063,61 @@ function renderUsers(snap) {
         name.className = 'user-name';
         name.textContent = u.nickname || '(без никнейма)';
 
-        // Удаление: аккаунт больше не сможет войти, проекты пользователя остаются на сайте
         const head = document.createElement('div');
         head.className = 'user-head';
-        head.append(name, button('🗑 Удалить', 'admin-btn danger', () => openConfirm({
-            title: 'Удалить пользователя?',
-            text: `Аккаунт «${u.nickname || u.email || u.id}» будет удалён: войти в него больше не получится. ` +
-                  'Проекты, которые он уже создал, останутся на сайте. Отменить это действие нельзя.',
-            yesText: 'Да, удалить',
-            onYes: () => run(async () => {
-                const batch = writeBatch(db);
-                batch.set(doc(db, 'bans', u.id), {
-                    email: u.email || '', nickname: u.nickname || '', deletedAt: serverTimestamp()
-                });
-                batch.delete(doc(db, 'members', u.id));
-                await batch.commit();
-            }, `${u.nickname || 'Пользователь'} удалён`)
-        })));
+        head.appendChild(name);
 
+        // Удаление (только владелец): аккаунт больше не сможет войти, проекты пользователя остаются на сайте
+        if (admin) {
+            head.appendChild(button('🗑 Удалить', 'admin-btn danger', () => openConfirm({
+                title: 'Удалить пользователя?',
+                text: `Аккаунт «${u.nickname || u.email || u.id}» будет удалён: войти в него больше не получится. ` +
+                      'Проекты, которые он уже создал, останутся на сайте. Отменить это действие нельзя.',
+                yesText: 'Да, удалить',
+                onYes: () => run(async () => {
+                    const batch = writeBatch(db);
+                    batch.set(doc(db, 'bans', u.id), {
+                        email: u.email || '', nickname: u.nickname || '', deletedAt: serverTimestamp()
+                    });
+                    batch.delete(doc(db, 'members', u.id));
+                    await batch.commit();
+                }, `${u.nickname || 'Пользователь'} удалён`)
+            })));
+        }
+
+        // Логин (email); код приглашения видит только владелец
         const meta = document.createElement('div');
         meta.className = 'user-meta';
-        meta.textContent = `${u.email || ''} · код: ${u.code || '—'}`;
+        meta.textContent = admin ? `${u.email || ''} · код: ${u.code || '—'}` : (u.email || 'email не записан');
+        row.append(head, meta);
 
-        const perms = document.createElement('div');
-        perms.className = 'user-perms';
-        Object.entries(PERMS).forEach(([key, label]) => {
-            const box = document.createElement('input');
-            box.type = 'checkbox';
-            box.checked = u.perms?.[key] === true;
-            box.addEventListener('change', () => {
-                // Всегда записываем все права целиком — так проще проверять в правилах
-                const next = {};
-                for (const k of Object.keys(PERMS)) next[k] = u.perms?.[k] === true;
-                next[key] = box.checked;
-                run(() => setDoc(doc(db, 'members', u.id), { perms: next }, { merge: true }),
-                    `${u.nickname}: права обновлены`);
-            });
-            const lbl = document.createElement('label');
-            lbl.className = 'check-row';
-            lbl.append(box, label);
-            perms.appendChild(lbl);
-        });
+        if (level === 'edit') {
+            const actions = document.createElement('div');
+            actions.className = 'user-actions';
+            actions.append(
+                button('✏️ Изменить ник', 'admin-btn', () => editNickname(u, name)),
+                button('📧 Сбросить пароль', 'admin-btn', () => resetPassword(u))
+            );
+            row.appendChild(actions);
+        }
 
-        row.append(head, meta, perms);
+        if (admin) row.appendChild(permsEditor(u.perms, (changes) => savePerms(u, changes)));
+
         usersList.appendChild(row);
     });
 }
 
+const USERS_HINTS = {
+    admin: 'Отметь, что может делать каждый пользователь. Изменения сохраняются сразу. ' +
+           'Пароли не видит никто, даже владелец: Firebase хранит их только в зашифрованном виде. ' +
+           'Забыл пароль — отправь письмо для сброса.',
+    view: 'Здесь видны ники и email (логины) пользователей. Пароли не видит никто — они хранятся в зашифрованном виде.',
+    edit: 'Можно поменять ник и отправить письмо для сброса пароля. Пароли не видит никто — они хранятся в зашифрованном виде.'
+};
+
 usersBtn.addEventListener('click', () => {
+    if (menuAccounts() === 'none') return;
+    usersHint.textContent = USERS_HINTS[menuAdmin() ? 'admin' : menuAccounts()];
     usersModal.classList.add('active');
     unsubMembers?.();
     unsubMembers = onSnapshot(collection(db, 'members'), renderUsers, (err) => {
@@ -800,6 +1136,426 @@ $('closeUsersBtn').addEventListener('click', closeUsers);
 usersModal.addEventListener('click', (e) => {
     if (e.target === usersModal) closeUsers();
 });
+
+// ===== РЕЙТИНГ ПРОЕКТОВ (владелец и те, у кого право «Менять рейтинг») =====
+// Порядок «от лучшего к худшему» сохраняется полем rank у каждого проекта
+let rankIds = [];
+
+function rankProjects() {
+    return allProjects().filter(p => p.approved);
+}
+
+function renderRank() {
+    const byId = Object.fromEntries(rankProjects().map(p => [p.id, p]));
+    rankList.innerHTML = '';
+    rankIds.forEach((id, i) => {
+        const p = byId[id];
+        if (!p) return;
+        const row = document.createElement('div');
+        row.className = 'rank-row';
+        const place = document.createElement('span');
+        place.className = 'rank-place';
+        place.textContent = i + 1;
+        const title = document.createElement('span');
+        title.className = 'rank-title';
+        title.textContent = p.title + (p.visible ? '' : ' (скрыт)');
+        const up = button('↑', 'admin-btn', () => moveRank(i, -1));
+        const down = button('↓', 'admin-btn', () => moveRank(i, 1));
+        up.disabled = i === 0;
+        down.disabled = i === rankIds.length - 1;
+        up.setAttribute('aria-label', `Поднять «${p.title}»`);
+        down.setAttribute('aria-label', `Опустить «${p.title}»`);
+        row.append(place, title, up, down);
+        rankList.appendChild(row);
+    });
+}
+
+function moveRank(i, step) {
+    const j = i + step;
+    if (j < 0 || j >= rankIds.length) return;
+    [rankIds[i], rankIds[j]] = [rankIds[j], rankIds[i]];
+    renderRank();
+    // кнопка, которой двигали, остаётся под пальцем — фокус на ней же в новой строке
+    rankList.children[j]?.querySelectorAll('.admin-btn')[step < 0 ? 0 : 1]?.focus();
+}
+
+rankBtn.addEventListener('click', () => {
+    if (!menuCan('rank')) return;
+    // начальный порядок — как в сортировке «Сначала лучшие»
+    const keep = sortMode;
+    sortMode = 'best';
+    rankIds = rankProjects().map(p => p.id);
+    sortMode = keep;
+    renderRank();
+    rankModal.classList.add('active');
+});
+
+rankSaveBtn.addEventListener('click', async () => {
+    rankSaveBtn.disabled = true;
+    await run(async () => {
+        const batch = writeBatch(db);
+        rankIds.forEach((id, i) => batch.set(doc(db, 'projects', id), { rank: i + 1 }, { merge: true }));
+        await batch.commit();
+        rankModal.classList.remove('active');
+    }, 'Рейтинг сохранён');
+    rankSaveBtn.disabled = false;
+});
+
+$('closeRankBtn').addEventListener('click', () => rankModal.classList.remove('active'));
+rankModal.addEventListener('click', (e) => {
+    if (e.target === rankModal) rankModal.classList.remove('active');
+});
+
+// ===== КОДЫ ПРИГЛАШЕНИЯ (только владелец) =====
+// Список кодов и кто по какому зарегистрировался (у пользователя в members записан его код)
+let unsubInvites = null;
+let unsubInviteMembers = null;
+let invites = null;          // [{ id, limit, used, note, createdAt }]
+let inviteMembers = null;    // [{ nickname, code }]
+let invitesFixed = false;    // старые коды (из консоли) дополнены счётчиком один раз
+
+const INVITE_RE = /^[A-Za-z0-9_-]{3,40}$/;
+
+function randomCode() {
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    return [...bytes].map(b => INVITE_CHARS[b % INVITE_CHARS.length]).join('');
+}
+
+// У кода из консоли может не быть limit — тогда он одноразовый (так же считают правила)
+const inviteLimitOf = (inv) => (Number.isInteger(inv.limit) ? inv.limit : 1);
+const inviteUsedOf = (inv) => (Number.isInteger(inv.used) ? inv.used : 0);
+
+function inviteUsage(inv) {
+    const used = inviteUsedOf(inv), lim = inviteLimitOf(inv);
+    if (lim === 0) return `Использован: ${used} · без ограничений`;
+    return `Использован: ${used} из ${lim}`;
+}
+
+// Старые коды без счётчика: used = сколько пользователей уже с этим кодом, limit — не меньше 1
+function fixOldInvites() {
+    if (invitesFixed || !invites || !inviteMembers) return;
+    invitesFixed = true;
+    const old = invites.filter(inv => !Number.isInteger(inv.used) || !Number.isInteger(inv.limit));
+    if (!old.length) return;
+    const batch = writeBatch(db);
+    for (const inv of old) {
+        const count = inviteMembers.filter(m => m.code === inv.id).length;
+        batch.update(doc(db, 'invites', inv.id), {
+            used: Number.isInteger(inv.used) ? inv.used : count,
+            limit: Number.isInteger(inv.limit) ? inv.limit : Math.max(1, count)
+        });
+    }
+    batch.commit().catch(err => console.warn('Старые коды не дополнены:', err.code || err.message));
+}
+
+function renderInvites() {
+    if (!invites || !inviteMembers) return;
+    fixOldInvites();
+    invitesList.innerHTML = '';
+    if (!invites.length) {
+        const empty = document.createElement('p');
+        empty.className = 'form-hint';
+        empty.textContent = 'Кодов пока нет. Создай первый выше.';
+        invitesList.appendChild(empty);
+        return;
+    }
+
+    const time = (inv) => inv.createdAt?.toMillis?.() || 0;
+    [...invites].sort((a, b) => time(b) - time(a)).forEach(inv => {
+        const lim = inviteLimitOf(inv);
+        const full = lim > 0 && inviteUsedOf(inv) >= lim;
+        const row = document.createElement('div');
+        row.className = 'invite-row' + (full ? ' is-full' : '');
+
+        // Код, «копировать» и состояние
+        const head = document.createElement('div');
+        head.className = 'invite-head';
+        const code = document.createElement('code');
+        code.className = 'invite-code';
+        code.textContent = inv.id;
+        const badge = document.createElement('span');
+        badge.className = 'invite-badge';
+        badge.textContent = full ? 'закончился' : 'действует';
+        head.append(code, button('📋', 'admin-btn', () => copyInvite(inv.id)), badge);
+
+        const meta = document.createElement('div');
+        meta.className = 'user-meta';
+        meta.textContent = inviteUsage(inv) + (inv.note ? ` · ${inv.note}` : '');
+
+        // Кто зарегистрировался по этому коду (удалённые пользователи сюда не попадают, но в счётчике остаются)
+        const who = inviteMembers.filter(m => m.code === inv.id);
+        const users = document.createElement('div');
+        users.className = 'visit-pages';
+        for (const m of who) {
+            const chip = document.createElement('span');
+            chip.className = 'visit-page';
+            chip.textContent = '👤 ' + (m.nickname || 'без ника');
+            users.appendChild(chip);
+        }
+
+        // Лимит и удаление
+        const tools = document.createElement('div');
+        tools.className = 'invite-tools';
+        const limitInput = document.createElement('input');
+        limitInput.type = 'number';
+        limitInput.min = 0;
+        limitInput.max = INVITE_LIMIT_MAX;
+        limitInput.value = lim;
+        limitInput.className = 'login-input invite-limit';
+        limitInput.setAttribute('aria-label', `Лимит кода ${inv.id}`);
+        const saveLimit = () => {
+            const value = clampLimit(limitInput.value);
+            if (value === lim) return;
+            run(() => updateDoc(doc(db, 'invites', inv.id), { limit: value }), `Лимит кода ${inv.id}: ${value || 'без ограничений'}`);
+        };
+        limitInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveLimit(); });
+        const limitLabel = document.createElement('label');
+        limitLabel.className = 'check-row';
+        limitLabel.append('Лимит:', limitInput);
+        tools.append(
+            limitLabel,
+            button('💾', 'admin-btn', saveLimit),
+            button('🗑 Удалить', 'admin-btn danger', () => openConfirm({
+                title: 'Удалить код?',
+                text: `По коду «${inv.id}» больше нельзя будет зарегистрироваться. Аккаунты, которые уже созданы по нему, останутся.`,
+                yesText: 'Да, удалить',
+                onYes: () => run(() => deleteDoc(doc(db, 'invites', inv.id)), 'Код удалён')
+            }))
+        );
+
+        row.append(head, meta);
+        if (who.length) row.appendChild(users);
+        row.appendChild(tools);
+        invitesList.appendChild(row);
+    });
+}
+
+// 0 — без ограничений; пустое или неверное — 1
+function clampLimit(value) {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n) || value === '') return 1;
+    return Math.min(INVITE_LIMIT_MAX, Math.max(0, n));
+}
+
+async function copyInvite(code) {
+    try {
+        await navigator.clipboard.writeText(code);
+        showToast(`Код ${code} скопирован`, 'success');
+    } catch {
+        showToast(`Не удалось скопировать. Код: ${code}`, 'warning');
+    }
+}
+
+invitesBtn.addEventListener('click', () => {
+    if (!menuAdmin()) return;
+    inviteCode.value = randomCode();
+    inviteLimit.value = 1;
+    inviteNote.value = '';
+    invites = null;
+    inviteMembers = null;
+    invitesList.innerHTML = '<p class="form-hint">Загрузка...</p>';
+    invitesModal.classList.add('active');
+
+    const fail = (err) => {
+        console.error(err);
+        invitesList.innerHTML = '<p class="form-hint">Не удалось загрузить коды — проверь правила Firestore.</p>';
+    };
+    unsubInvites?.();
+    unsubInviteMembers?.();
+    unsubInvites = onSnapshot(invitesCol, (snap) => {
+        invites = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderInvites();
+    }, fail);
+    unsubInviteMembers = onSnapshot(collection(db, 'members'), (snap) => {
+        inviteMembers = snap.docs.map(d => ({ nickname: d.data().nickname, code: d.data().code }));
+        renderInvites();
+    }, fail);
+});
+
+$('inviteRandomBtn').addEventListener('click', () => {
+    inviteCode.value = randomCode();
+    inviteCode.focus();
+});
+
+inviteForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = inviteCode.value.trim();
+    if (!INVITE_RE.test(code)) {
+        showToast('Код — от 3 до 40 символов: латинские буквы, цифры, «-» и «_»');
+        return;
+    }
+    const lim = clampLimit(inviteLimit.value);
+    run(async () => {
+        const ref = doc(db, 'invites', code);
+        if ((await getDoc(ref)).exists()) throw new Error(`Код ${code} уже есть`);
+        await setDoc(ref, { limit: lim, used: 0, note: inviteNote.value.trim().slice(0, 60), createdAt: serverTimestamp() });
+        inviteCode.value = randomCode();
+        inviteNote.value = '';
+        copyInvite(code);
+    });
+});
+
+function closeInvites() {
+    invitesModal.classList.remove('active');
+    unsubInvites?.();
+    unsubInviteMembers?.();
+    unsubInvites = unsubInviteMembers = null;
+}
+
+$('closeInvitesBtn').addEventListener('click', closeInvites);
+invitesModal.addEventListener('click', (e) => {
+    if (e.target === invitesModal) closeInvites();
+});
+
+// ===== СВОЙ ПАРОЛЬ И EMAIL =====
+// Firebase просит заново ввести текущий пароль — так никто не сменит пароль на чужом открытом компьютере
+function showSecurityMode(mode) {
+    const isEmail = mode === 'email';
+    passwordForm.hidden = isEmail;
+    emailForm.hidden = !isEmail;
+    $('secPasswordTab').classList.toggle('active', !isEmail);
+    $('secEmailTab').classList.toggle('active', isEmail);
+    $('securityTitle').textContent = isEmail ? 'Сменить email' : 'Сменить пароль';
+    setTimeout(() => (isEmail ? $('emCurrent') : $('pwCurrent')).focus(), 100);
+}
+
+function closeSecurity() {
+    securityModal.classList.remove('active');
+    passwordForm.reset();
+    emailForm.reset();
+}
+
+$('securityBtn').addEventListener('click', () => {
+    if (!currentUser) return;
+    showSecurityMode('password');
+    securityModal.classList.add('active');
+});
+$('secPasswordTab').addEventListener('click', () => showSecurityMode('password'));
+$('secEmailTab').addEventListener('click', () => showSecurityMode('email'));
+
+function reauth(password) {
+    return reauthenticateWithCredential(currentUser, EmailAuthProvider.credential(currentUser.email, password));
+}
+
+// Общая обёртка для двух форм: блокирует кнопку и переводит ошибки
+async function securitySubmit(submitBtn, busyText, action) {
+    const text = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = busyText;
+    try {
+        await action();
+    } catch (err) {
+        console.error(err);
+        const wrong = ['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'];
+        showToast(wrong.includes(err.code) ? 'Неверный текущий пароль' : authErrorText(err.code));
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = text;
+    }
+}
+
+passwordForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if ($('pwNew').value !== $('pwNew2').value) {
+        showToast('Новые пароли не совпадают');
+        return;
+    }
+    securitySubmit($('passwordSubmit'), 'Меняем...', async () => {
+        await reauth($('pwCurrent').value);
+        await updatePassword(currentUser, $('pwNew').value);
+        closeSecurity();
+        showToast('Пароль изменён', 'success');
+    });
+});
+
+emailForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = $('emNew').value.trim();
+    securitySubmit($('emailSubmit'), 'Отправляем...', async () => {
+        await reauth($('emCurrent').value);
+        await verifyBeforeUpdateEmail(currentUser, email);
+        closeSecurity();
+        showToast('Письмо отправлено на новый email. Откройте ссылку из него', 'success');
+    });
+});
+
+$('closeSecurityBtn').addEventListener('click', closeSecurity);
+securityModal.addEventListener('click', (e) => {
+    if (e.target === securityModal) closeSecurity();
+});
+
+// ===== СОРТИРОВКА =====
+function renderSortMenu() {
+    sortOptions.innerHTML = '';
+    for (const [key, s] of Object.entries(SORTS)) {
+        const opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'sort-option' + (key === sortMode ? ' active' : '');
+        opt.setAttribute('role', 'menuitemradio');
+        opt.setAttribute('aria-checked', String(key === sortMode));
+        const img = document.createElement('img');
+        img.src = s.icon;
+        img.alt = '';
+        img.className = 'sort-icon' + (s.mirror ? ' is-mirror' : '') + (s.dim ? ' is-dim' : '');
+        const label = document.createElement('span');
+        label.textContent = s.label;
+        const check = document.createElement('span');
+        check.className = 'sort-check';
+        check.textContent = key === sortMode ? '✓' : '';
+        opt.append(img, label, check);
+        opt.addEventListener('click', () => setSort(key));
+        sortOptions.appendChild(opt);
+    }
+}
+
+function setSort(key) {
+    sortMode = key;
+    const s = SORTS[key];
+    sortIcon.className = 'sort-icon' + (s.mirror ? ' is-mirror' : '') + (s.dim ? ' is-dim' : '');
+    sortIcon.src = s.icon;
+    sortBtn.title = s.label;
+    closeSortMenu();
+    render();
+}
+
+function openSortMenu() {
+    renderSortMenu();
+    sortMenu.hidden = false;
+    // меню — под кнопкой, но не вылезает за левый край строки
+    const left = sortBtn.offsetLeft + sortBtn.offsetWidth - sortMenu.offsetWidth;
+    sortMenu.style.left = `${Math.max(0, left)}px`;
+    sortBtn.setAttribute('aria-expanded', 'true');
+    sortOptions.querySelector('.active')?.focus();
+}
+
+function closeSortMenu() {
+    if (sortMenu.hidden) return;
+    sortMenu.hidden = true;
+    sortBtn.setAttribute('aria-expanded', 'false');
+}
+
+sortBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (sortMenu.hidden) openSortMenu();
+    else closeSortMenu();
+});
+
+// Клик мимо меню закрывает его
+document.addEventListener('click', (e) => {
+    if (!sortMenu.hidden && !sortMenu.contains(e.target)) closeSortMenu();
+});
+
+// Стрелки вверх/вниз ходят по пунктам
+sortMenu.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const items = [...sortOptions.children];
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+    items[next].focus();
+});
+
+sortBtn.title = SORTS[sortMode].label;
 
 // ===== СТАТИСТИКА ПОСЕЩЕНИЙ: ЗАПИСЬ =====
 // Один заход = одна запись в visits. ID устройства хранится в localStorage,
@@ -1073,7 +1829,7 @@ async function loadVisits(more = false) {
 
 // Раз в день владелец удаляет заходы старше VISITS_KEEP_DAYS дней
 async function cleanupOldVisits() {
-    if (!isAdmin) return;
+    if (!isAdmin || asTest()) return;
     const today = new Date().toDateString();
     if (storageGet(localStorage, 'dahz_visits_cleanup') === today) return;
     try {
@@ -1115,7 +1871,7 @@ function exportVisits() {
 }
 
 activityBtn.addEventListener('click', async () => {
-    if (!can('activity')) return;
+    if (!menuCan('activity')) return;
     activityModal.classList.add('active');
     activitySearch.value = '';
     activityList.innerHTML = '<p class="form-hint">Загрузка...</p>';
@@ -1200,12 +1956,22 @@ function watchMember() {
     unsubMember = onSnapshot(doc(db, 'members', currentUser.uid), (snap) => {
         member = snap.exists() ? snap.data() : null;
         if (!can('activity')) closeActivity();   // право забрали — окно закрывается
+        if (accountsAccess() === 'none') closeUsers();
+        if (!can('rank')) rankModal.classList.remove('active');
+        syncMemberEmail();
         updateVisitUser();
         render();
     }, () => {
         member = null;
         render();
     });
+}
+
+// Пользователь сменил email через письмо — обновляем его и в members, чтобы владелец видел новый логин
+function syncMemberEmail() {
+    if (!member || !currentUser?.email || member.email === currentUser.email) return;
+    updateDoc(doc(db, 'members', currentUser.uid), { email: currentUser.email })
+        .catch((err) => console.warn('Email в members не обновлён:', err.code || err.message));
 }
 
 // Владелец удалил аккаунт (bans/{uid}) — при входе аккаунт удаляет сам себя
@@ -1229,7 +1995,7 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUser = user;
     isAdmin = !!user && user.uid === ADMIN_UID;
-    loginBtn.textContent = user ? 'Выйти' : LOGIN_BTN_TEXT;
+    if (!user) closeAccountMenu();
 
     // Статистика посещений
     if (!visitStarted) startVisit(user);
@@ -1254,8 +2020,11 @@ onAuthStateChanged(auth, async (user) => {
         }, (err) => console.warn(err));
     }
 
-    if (!isAdmin) closeUsers();
+    if (accountsAccess() === 'none') closeUsers();
     if (!can('activity')) closeActivity();
+    if (!can('rank')) rankModal.classList.remove('active');
+    if (!isAdmin) closeInvites();
+    if (!user) closeSecurity();
     watchMember();
     render();
 });
@@ -1313,12 +2082,26 @@ document.addEventListener('click', (e) => {
     if (!inviteInfoTip.contains(e.target)) hideInfoTip();
 });
 
-loginBtn.addEventListener('click', async () => {
-    if (auth.currentUser) {
-        await signOut(auth);
-        showToast('Вы вышли из аккаунта', 'info');
-    } else {
-        openLogin();
+// Вошёл — меню «Управление аккаунтом» (выход теперь там), не вошёл — окно входа
+loginBtn.addEventListener('click', () => {
+    if (auth.currentUser) openAccountMenu();
+    else openLogin();
+});
+
+// Забыли пароль: Firebase присылает письмо со ссылкой, по которой задаётся новый пароль
+auth.languageCode = 'ru';
+$('forgotBtn').addEventListener('click', async () => {
+    const email = loginEmail.value.trim();
+    if (!email) {
+        showToast('Сначала впишите свой email в поле выше', 'warning');
+        loginEmail.focus();
+        return;
+    }
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showToast('Если такой аккаунт есть, на почту придёт письмо для нового пароля', 'success');
+    } catch (err) {
+        showToast(authErrorText(err.code));
     }
 });
 
@@ -1336,6 +2119,14 @@ document.addEventListener('keydown', (e) => {
     if (usersModal.classList.contains('active')) closeUsers();
     closeActivity();
     tokenModal.classList.remove('active');
+    closeAccountMenu();
+    rankModal.classList.remove('active');
+    if (invitesModal.classList.contains('active')) closeInvites();
+    if (securityModal.classList.contains('active')) closeSecurity();
+    if (!sortMenu.hidden) {
+        closeSortMenu();
+        sortBtn.focus();
+    }
 });
 
 function authErrorText(code) {
@@ -1371,9 +2162,10 @@ loginForm.addEventListener('submit', async (e) => {
 });
 
 // ===== РЕГИСТРАЦИЯ ПО КОДУ ПРИГЛАШЕНИЯ =====
-// 1) создаём аккаунт; 2) записываем members/{uid} с кодом и никнеймом.
-// Правила Firestore пропустят запись, только если есть документ invites/{код}.
-// Код неверный → запись отклонена → сразу удаляем только что созданный аккаунт.
+// 1) создаём аккаунт; 2) смотрим код: есть ли он и не закончился ли;
+// 3) одной пачкой записываем members/{uid} и прибавляем 1 к счётчику кода.
+// Правила Firestore пропустят пачку, только если код есть и лимит не исчерпан.
+// Код не подошёл → сразу удаляем только что созданный аккаунт.
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const code = regCode.value.trim();
@@ -1387,18 +2179,41 @@ registerForm.addEventListener('submit', async (e) => {
         showToast('Пароли не совпадают');
         return;
     }
+    if (!INVITE_RE.test(code)) {
+        showToast('Неверный код приглашения');
+        return;
+    }
 
     registerSubmit.disabled = true;
     registerSubmit.textContent = 'Создаём аккаунт...';
     let cred = null;
+    let codeProblem = '';   // понятная причина, если код не подошёл
     try {
         cred = await createUserWithEmailAndPassword(auth, regEmail.value.trim(), regPassword.value);
-        await setDoc(doc(db, 'members', cred.user.uid), {
+
+        const inviteRef = doc(db, 'invites', code);
+        const invite = await getDoc(inviteRef).catch(() => null);
+        if (!invite?.exists()) {
+            codeProblem = 'Неверный код приглашения';
+            throw new Error(codeProblem);
+        }
+        const lim = inviteLimitOf(invite.data()), used = inviteUsedOf(invite.data());
+        if (lim > 0 && used >= lim) {
+            codeProblem = lim === 1
+                ? 'Этот код приглашения уже был использован'
+                : `По этому коду уже зарегистрировано ${used} из ${lim} аккаунтов`;
+            throw new Error(codeProblem);
+        }
+
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'members', cred.user.uid), {
             email: cred.user.email,
             nickname,
             code,
             createdAt: serverTimestamp()
         });
+        batch.update(inviteRef, { used: increment(1) });
+        await batch.commit();
         // Ник подтянется сам: watchMember следит за members/{uid}
         closeLogin();
         showToast('Аккаунт создан!', 'success');
@@ -1406,7 +2221,10 @@ registerForm.addEventListener('submit', async (e) => {
         if (cred) {
             // Аккаунт создался, а код не подошёл — убираем аккаунт
             await deleteUser(cred.user).catch(() => signOut(auth));
-            showToast(err.code === 'permission-denied' ? 'Неверный код приглашения' : 'Не удалось завершить регистрацию');
+            // отказ правил: скорее всего, кто-то только что занял последнее место по коду
+            showToast(codeProblem || (err.code === 'permission-denied'
+                ? 'Этот код приглашения уже был использован'
+                : 'Не удалось завершить регистрацию'));
         } else {
             showToast(authErrorText(err.code));
         }

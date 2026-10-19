@@ -18,7 +18,7 @@
     <!-- Подключаем внешние стили -->
     <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
          иначе браузер может до 10 минут брать старую копию из кэша -->
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body class="projects-loading">
 
@@ -32,7 +32,7 @@
     <!-- Шапка -->
     <header>
         <!-- Приветствие: внутри играет радужная пиксельная анимация (клик — ещё раз) -->
-        <div class="welcome-text" id="welcomeText" role="button" tabindex="0" title="Нажмите, чтобы увидеть радугу ещё раз">
+        <div class="welcome-text" id="welcomeText" role="button" tabindex="0">
             <canvas class="welcome-rainbow" id="welcomeRainbow" aria-hidden="true"></canvas>
             <span class="welcome-label">Добро пожаловать, тут я хочу собирать все проекты... By Waltika</span>
         </div>
@@ -47,21 +47,23 @@
         </div>
     </div>
 
-    <!-- Поиск на всю строку (всегда открыт) и кнопка смены темы -->
+    <!-- Поиск на всю строку (всегда открыт), сортировка и кнопка смены темы -->
     <div class="search-row">
         <label class="search-field">
             <span class="search-icon"><img src="images/find.png" alt="" onerror="this.replaceWith('🔍')"></span>
             <input class="search-input" id="searchInput" type="search" placeholder="Поиск проектов..." aria-label="Поиск проектов" autocomplete="off">
         </label>
+        <button class="btn sort-btn" id="sortBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Сортировка проектов">
+            <img class="sort-icon" id="sortIcon" src="images/sort-time.png" alt="">
+            <span class="sort-label">Сортировка</span>
+        </button>
         <button class="btn theme-btn" id="themeBtn" type="button" aria-label="Сменить тему сайта">🎨 Тема</button>
-    </div>
 
-    <!-- Панель аккаунта (появляется после входа) -->
-    <div class="account-bar" id="accountBar" hidden>
-        <button class="btn" id="createProjectBtn" type="button">➕ Создать проект</button>
-        <button class="btn" id="tokenBtn" type="button" hidden>🔑 Токен GitHub</button>
-        <button class="btn" id="usersBtn" type="button" hidden>👥 Пользователи</button>
-        <button class="btn" id="activityBtn" type="button" hidden>📊 Активность</button>
+        <!-- Меню сортировки (пункты рисует firebase.js). По умолчанию и после обновления — «Сначала первые» -->
+        <div class="sort-menu" id="sortMenu" role="menu" hidden>
+            <div class="sort-options" id="sortOptions"></div>
+            <p class="sort-note">Лучшие и худшие проекты отсортированы по моему личному (субъективному) мнению</p>
+        </div>
     </div>
 
     <!-- Карточки проектов -->
@@ -148,6 +150,7 @@
                 <label for="loginPassword">Пароль</label>
                 <input type="password" id="loginPassword" class="login-input" autocomplete="current-password" required>
                 <button type="submit" class="modal-btn" id="loginSubmit">Войти</button>
+                <button type="button" class="auth-switch" id="forgotBtn">Забыли пароль?</button>
                 <button type="button" class="auth-switch" id="toRegisterBtn">Ещё нет аккаунта? Зарегистрироваться</button>
             </form>
 
@@ -175,6 +178,99 @@
                 <input type="password" id="regPassword2" class="login-input" autocomplete="new-password" minlength="6" required>
                 <button type="submit" class="modal-btn" id="registerSubmit">Зарегистрироваться</button>
                 <button type="button" class="auth-switch" id="toLoginBtn">Уже есть аккаунт? Войти</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: управление аккаунтом (открывается кнопкой в шапке после входа) -->
+    <div id="accountModal" class="modal-overlay">
+        <div class="modal-window modal-wide">
+            <button class="modal-close" id="closeAccountBtn" type="button">×</button>
+            <h3 class="modal-title">Управление аккаунтом</h3>
+            <p class="form-hint account-who" id="accountWho"></p>
+
+            <!-- Вид страницы: с кнопками управления, как у посетителя без аккаунта
+                 или глазами тестового пользователя (последний — только у владельца) -->
+            <div class="view-switch" id="viewSwitch" role="radiogroup" aria-label="Вид страницы">
+                <button type="button" class="view-option" id="viewEditBtn" role="radio">✏️ Редактирование</button>
+                <button type="button" class="view-option" id="viewGuestBtn" role="radio">👁 Как гость</button>
+                <button type="button" class="view-option" id="viewTestBtn" role="radio" hidden>🧪 Тестовый</button>
+            </div>
+            <p class="form-hint view-hint" id="viewHint"></p>
+
+            <div class="modal-buttons account-actions">
+                <button class="modal-btn" id="createProjectBtn" type="button">➕ Создать проект</button>
+                <button class="modal-btn" id="rankBtn" type="button" hidden>🏆 Рейтинг проектов</button>
+                <button class="modal-btn" id="usersBtn" type="button" hidden>👥 Пользователи</button>
+                <button class="modal-btn" id="invitesBtn" type="button" hidden>🎟 Коды приглашения</button>
+                <button class="modal-btn" id="activityBtn" type="button" hidden>📊 Активность</button>
+                <button class="modal-btn" id="tokenBtn" type="button" hidden>🔑 Токен GitHub</button>
+                <button class="modal-btn" id="securityBtn" type="button">🔐 Сменить пароль или email</button>
+                <button class="modal-btn danger" id="logoutBtn" type="button">🚪 Выйти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: рейтинг проектов для сортировки «лучшие / худшие» (только владелец) -->
+    <div id="rankModal" class="modal-overlay">
+        <div class="modal-window modal-wide">
+            <button class="modal-close" id="closeRankBtn" type="button">×</button>
+            <h3 class="modal-title">Рейтинг проектов</h3>
+            <p class="form-hint">Сверху — лучшие, снизу — худшие. Двигай проекты стрелками и нажми «Сохранить».</p>
+            <div class="rank-list" id="rankList"></div>
+            <button class="modal-btn" id="rankSaveBtn" type="button">Сохранить</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно: коды приглашения (только владелец) -->
+    <div id="invitesModal" class="modal-overlay">
+        <div class="modal-window modal-wide invites-window">
+            <button class="modal-close" id="closeInvitesBtn" type="button">×</button>
+            <h3 class="modal-title">Коды приглашения</h3>
+            <form class="invite-form" id="inviteForm">
+                <div class="invite-form-row">
+                    <input type="text" id="inviteCode" class="login-input" maxlength="40" autocomplete="off" aria-label="Код" placeholder="Код">
+                    <button type="button" class="admin-btn" id="inviteRandomBtn" title="Случайный код" aria-label="Случайный код">🎲</button>
+                </div>
+                <div class="invite-form-row">
+                    <label class="check-row" for="inviteLimit">Аккаунтов по коду:</label>
+                    <input type="number" id="inviteLimit" class="login-input invite-limit" min="0" max="1000" value="1">
+                </div>
+                <input type="text" id="inviteNote" class="login-input" maxlength="60" placeholder="Для кого (необязательно)" aria-label="Для кого">
+                <button type="submit" class="modal-btn">➕ Добавить код</button>
+                <p class="form-hint">Лимит 0 — без ограничений. После создания код сразу копируется.</p>
+            </form>
+            <div class="invites-list" id="invitesList"><p class="form-hint">Загрузка...</p></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: сменить свой пароль или email -->
+    <div id="securityModal" class="modal-overlay">
+        <div class="modal-window modal-wide">
+            <button class="modal-close" id="closeSecurityBtn" type="button">×</button>
+            <h3 class="modal-title" id="securityTitle">Сменить пароль</h3>
+            <div class="view-switch">
+                <button type="button" class="view-option active" id="secPasswordTab">Пароль</button>
+                <button type="button" class="view-option" id="secEmailTab">Email</button>
+            </div>
+
+            <form class="login-form" id="passwordForm">
+                <label for="pwCurrent">Текущий пароль</label>
+                <input type="password" id="pwCurrent" class="login-input" autocomplete="current-password" required>
+                <label for="pwNew">Новый пароль</label>
+                <input type="password" id="pwNew" class="login-input" autocomplete="new-password" minlength="6" required>
+                <label for="pwNew2">Повторите новый пароль</label>
+                <input type="password" id="pwNew2" class="login-input" autocomplete="new-password" minlength="6" required>
+                <button type="submit" class="modal-btn" id="passwordSubmit">Сменить пароль</button>
+            </form>
+
+            <form class="login-form" id="emailForm" hidden>
+                <p class="form-hint">На новый email придёт письмо. Email сменится, когда вы откроете ссылку из письма.</p>
+                <label for="emCurrent">Текущий пароль</label>
+                <input type="password" id="emCurrent" class="login-input" autocomplete="current-password" required>
+                <label for="emNew">Новый email</label>
+                <input type="email" id="emNew" class="login-input" autocomplete="email" required>
+                <button type="submit" class="modal-btn" id="emailSubmit">Отправить письмо</button>
             </form>
         </div>
     </div>
@@ -226,12 +322,12 @@
         </div>
     </div>
 
-    <!-- Модальное окно: пользователи и их права (видит только владелец) -->
+    <!-- Модальное окно: пользователи и их права (владелец и те, кому он дал доступ к аккаунтам) -->
     <div id="usersModal" class="modal-overlay">
         <div class="modal-window modal-wide">
             <button class="modal-close" id="closeUsersBtn" type="button">×</button>
             <h3 class="modal-title">Пользователи</h3>
-            <p class="form-hint">Отметь, что может делать каждый пользователь. Изменения сохраняются сразу.</p>
+            <p class="form-hint" id="usersHint">Отметь, что может делать каждый пользователь. Изменения сохраняются сразу.</p>
             <div class="users-list" id="usersList"><p class="form-hint">Загрузка...</p></div>
         </div>
     </div>
@@ -266,8 +362,8 @@
     </div>
 
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
-    <script src="script.js?v=11"></script>
+    <script src="script.js?v=12"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
-    <script type="module" src="firebase.js?v=17"></script>
+    <script type="module" src="firebase.js?v=18"></script>
 </body>
 </html>
