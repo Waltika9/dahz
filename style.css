@@ -484,8 +484,9 @@ header {
     justify-content: center;
 }
 
-/* ===== Поиск проектов (всегда открыт, на всю строку) и кнопка темы ===== */
+/* ===== Поиск проектов (всегда открыт, на всю строку), сортировка и кнопка темы ===== */
 .search-row {
+    position: relative;   /* от неё отсчитывается меню сортировки */
     display: flex;
     align-items: stretch;
     gap: 12px;
@@ -543,13 +544,117 @@ header {
     border-color: var(--focus-border);
 }
 
-.theme-btn {
+.theme-btn,
+.sort-btn {
     flex: none;
     height: 46px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
+}
+
+/* ===== Сортировка: кнопка и выпадающее меню (firebase.js) ===== */
+.sort-btn { gap: 8px; }
+
+.sort-btn[aria-expanded="true"] {
+    transform: var(--press);
+    box-shadow: var(--shadow-press);
+    background: var(--accent-hover);
+}
+
+.sort-icon {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    object-fit: contain;
+    transition: transform 0.2s ease;
+}
+
+/* Часы чёрные — в тёмных темах их нужно перекрасить, жёлтую звезду — нет */
+.sort-icon[src$="sort-time.png"] { filter: var(--icon-filter); }
+.sort-icon.is-mirror { transform: scaleX(-1); }            /* «новые» — стрелка часов вперёд */
+.sort-icon.is-dim { filter: grayscale(1); opacity: 0.45; }  /* «худшие» — погасшая звезда */
+
+.sort-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    z-index: 50;
+    width: 290px;
+    max-width: 100%;
+    padding: 8px;
+    background: var(--modal-bg);
+    -webkit-backdrop-filter: var(--glass);
+    backdrop-filter: var(--glass);
+    border: var(--bw) solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-modal);
+    animation: sort-drop 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sort-menu[hidden] { display: none; }
+
+@keyframes sort-drop {
+    from { opacity: 0; transform: translateY(-8px); }
+}
+
+.sort-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sort-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: var(--bw-sm) solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-color);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sort-option:hover,
+.sort-option:focus-visible {
+    outline: none;
+    background: var(--accent-hover);
+    border-color: var(--border-color);
+    transform: var(--lift-sm);
+    box-shadow: var(--shadow-sm);
+}
+
+.sort-option.active {
+    background: var(--ok-bg);
+    border-color: var(--border-color);
+}
+
+.sort-check {
+    margin-left: auto;
+    font-weight: 800;
+}
+
+/* Светло-серая подпись внизу меню */
+.sort-note {
+    margin: 8px 4px 2px;
+    padding-top: 8px;
+    border-top: var(--bw-sm) dashed var(--border-color);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--muted);
+    opacity: 0.75;
+}
+
+/* На узком экране у кнопки сортировки остаётся только значок */
+@media (max-width: 600px) {
+    .sort-label { display: none; }
+    .sort-btn { padding: 8px 12px; }
 }
 
 /* во время поиска прячем заглушку «скоро» и серые скелетоны */
@@ -644,12 +749,18 @@ body.searching .projects-list > .project-card { display: none; }
     border-radius: 4px;
 }
 
-/* Toast уведомление */
+/* Toast уведомление.
+   Спрятанное — невидимое (visibility), а не просто уехавшее за край: в Safari на iPhone
+   страница рисуется и под нижней панелью браузера, и уехавшую плашку там было видно */
 .toast {
     position: fixed;
-    bottom: -100px;
+    bottom: calc(30px + env(safe-area-inset-bottom, 0px));
     left: 50%;
-    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    transform: translate(-50%, calc(100% + 40px));
+    opacity: 0;
+    visibility: hidden;
     background: #ef4444;
     color: white;
     padding: 12px 24px;
@@ -657,12 +768,16 @@ body.searching .projects-list > .project-card { display: none; }
     border-radius: var(--radius);
     box-shadow: var(--toast-shadow);
     font-weight: 600;
-    transition: bottom 0.3s ease;
+    text-align: center;
+    transition: transform 0.3s ease, opacity 0.3s ease, visibility 0s linear 0.3s;
     z-index: 2000;   /* выше модальных окон (у них 1000), иначе уведомление прячется за размытым фоном */
 }
 
 .toast.show {
-    bottom: 30px;
+    transform: translate(-50%, 0);
+    opacity: 1;
+    visibility: visible;
+    transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 /* Угасание заглушек */
@@ -856,12 +971,6 @@ body.searching .projects-list > .project-card { display: none; }
     font-weight: 700;
 }
 
-.theme-desc {
-    font-size: 0.8rem;
-    line-height: 1.35;
-    color: var(--muted);
-}
-
 @media (max-width: 460px) {
     .theme-grid { grid-template-columns: 1fr; }
 }
@@ -980,14 +1089,12 @@ body.searching .projects-list > .project-card { display: none; }
 body.intro-playing > header,
 body.intro-playing > .sub-nav,
 body.intro-playing > .search-row,
-body.intro-playing > .account-bar,
 body.intro-playing > .projects-list {
     animation: intro-content 1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 body.intro-playing > .sub-nav       { animation-delay: 0.06s; }
 body.intro-playing > .search-row    { animation-delay: 0.08s; }
-body.intro-playing > .account-bar   { animation-delay: 0.1s; }
 body.intro-playing > .projects-list { animation-delay: 0.14s; }
 
 @keyframes intro-content {
@@ -1038,18 +1145,237 @@ body.projects-loading .project-card[data-project-id] {
     color: var(--muted);
 }
 
-/* Панель аккаунта над списком */
-.account-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 25px;
+/* .btn и .modal-btn задают display, а он перебивает атрибут hidden — возвращаем скрытие */
+.btn[hidden],
+.modal-btn[hidden] { display: none; }
+
+/* ===== Окно «Управление аккаунтом» ===== */
+/* На низком экране (маленький телефон) кнопки не помещаются — окно прокручивается */
+#accountModal .modal-window {
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
 }
 
-.account-bar[hidden] { display: none; }
+.account-who {
+    margin: -8px 0 16px;
+    word-break: break-word;
+}
 
-/* .btn задаёт display: inline-block, а он перебивает атрибут hidden — возвращаем скрытие */
-.btn[hidden] { display: none; }
+/* Переключатель из двух половинок: «Редактирование | Как гость» (и «Пароль | Email») */
+.view-switch {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.view-option {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 6px;
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    color: var(--text-color);
+    box-shadow: var(--shadow-sm);
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.view-option:hover {
+    transform: var(--lift-sm);
+    box-shadow: var(--shadow);
+    background: var(--accent-hover);
+}
+
+/* Выбранная половинка «вдавлена» */
+.view-option.active {
+    background: var(--ok-bg);
+    transform: var(--press);
+    box-shadow: var(--shadow-sm-press);
+    cursor: default;
+}
+
+.view-hint {
+    margin-bottom: 18px;
+    text-align: left;
+}
+
+#securityModal .view-switch { margin-bottom: 16px; }
+
+/* ===== Окно «Рейтинг проектов» ===== */
+.rank-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 55vh;
+    overflow-y: auto;
+    margin: 14px 0 16px;
+    padding: 2px 6px 6px 2px;   /* место для теней */
+    text-align: left;
+}
+
+.rank-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--soft-bg);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Тройка лучших — с золотым, серебряным и бронзовым номером */
+.rank-place {
+    flex: none;
+    min-width: 30px;
+    padding: 2px 6px;
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--tag-bg);
+    font-weight: 800;
+    text-align: center;
+}
+
+.rank-row:nth-child(1) .rank-place { background: #fde68a; color: #000; }
+.rank-row:nth-child(2) .rank-place { background: #e2e8f0; color: #000; }
+.rank-row:nth-child(3) .rank-place { background: #fed7aa; color: #000; }
+
+.rank-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.rank-row .admin-btn { flex: none; width: 34px; padding: 5px 0; }
+.admin-btn:disabled { opacity: 0.35; cursor: default; transform: none; box-shadow: var(--shadow-sm); }
+
+/* ===== Окно «Пользователи»: смена ника, сброс пароля, уровень доступа ===== */
+.user-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.nick-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.nick-edit .login-input { padding: 5px 8px; font-size: 0.95rem; }
+
+/* Тестовый пользователь — пунктирная рамка, чтобы не спутать с настоящим */
+.user-row.is-test {
+    border-style: dashed;
+    background: var(--st-pending);
+}
+
+.user-row.is-test .user-meta { word-break: normal; }
+
+/* ===== Окно «Коды приглашения» ===== */
+.invites-window { max-width: 560px; }
+
+.invite-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 2px 6px 0 2px;   /* место для теней полей */
+    text-align: left;
+}
+
+.invite-form-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.invite-form-row .login-input { flex: 1; min-width: 0; }
+.invite-form .admin-btn { flex: none; font-size: 1.1rem; padding: 6px 10px; }
+.invite-form .modal-btn { margin-top: 2px; }
+
+.login-input.invite-limit {
+    flex: none;
+    width: 90px;
+    padding: 6px 8px;
+}
+
+.invites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: 2px 6px 6px 2px;   /* место для теней */
+    text-align: left;
+}
+
+.invite-row {
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 10px 12px;
+    background: var(--soft-bg);
+}
+
+.invite-row.is-full { opacity: 0.7; }
+
+.invite-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.invite-code {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    word-break: break-all;
+}
+
+.invite-badge {
+    margin-left: auto;
+    padding: 2px 8px;
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--ok-bg);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.invite-row.is-full .invite-badge { background: var(--danger-bg); }
+
+.invite-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.invite-tools .check-row { font-size: 0.85rem; }
+
+.perm-select {
+    padding: 3px 6px;
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
 
 body:not(.is-admin) .project-card.is-blocked { cursor: not-allowed; }
 

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="../images/favicon.png">
 
     <!-- Стили главного сайта (.btn, .toast, шапка) -->
-    <link rel="stylesheet" href="../style.css?v=11">
+    <link rel="stylesheet" href="../style.css?v=15">
 
     <!-- D3 (рисование карты) и TopoJSON (формат карты мира) -->
     <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
@@ -25,7 +25,10 @@
             --tile: #111827;
         }
 
-        /* Страница шире, чем на главной — билету и карте нужно место */
+        /* Страница шире, чем на главной — билету и карте нужно место.
+           overflow-x и у html: Safari на iPhone смотрит только на него, а не на body */
+        html { overflow-x: hidden; }
+
         body {
             max-width: 980px;
             background: transparent;
@@ -473,11 +476,12 @@
         }
 
         /* Поля ввода */
-        .field { margin-bottom: 16px; }
+        /* min-width: 0 и minmax(0, …) — иначе колонка растягивается под самое широкое поле */
+        .field { margin-bottom: 16px; min-width: 0; }
 
         .field-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             gap: 14px;
         }
 
@@ -500,9 +504,29 @@
             background: #fff;
             box-shadow: 3px 3px 0 #000;
             font-size: 1rem;
+            line-height: 1.25;
             color: var(--ink);
             transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
+
+        /* Поле даты на iPhone: своя ширина, высота 0, пока пусто, и текст по центру.
+           Делаем его обычным полем той же высоты, что и остальные */
+        input[type="date"].input {
+            -webkit-appearance: none;
+            appearance: none;
+            display: block;
+            min-width: 0;
+            max-width: 100%;
+            height: calc(1.25em + 28px);   /* строка + отступы 11+11 + рамки 3+3 — как у текстовых полей */
+            text-align: left;
+        }
+
+        input[type="date"].input::-webkit-date-and-time-value {
+            text-align: left;
+            margin: 0;
+        }
+
+        input[type="date"].input::-webkit-calendar-picker-indicator { margin: 0; padding: 0; }
 
         .input:focus {
             outline: none;
@@ -901,7 +925,7 @@
 
         /* ===== МОБИЛЬНЫЕ ===== */
         @media (max-width: 720px) {
-            .ticket { grid-template-columns: 1fr; }
+            .ticket { grid-template-columns: minmax(0, 1fr); }
 
             .ticket-stub {
                 border-left: none;
@@ -919,7 +943,7 @@
 
         @media (max-width: 480px) {
             .ticket-main { padding: 18px 16px; }
-            .field-row { grid-template-columns: 1fr; gap: 0; }
+            .field-row { grid-template-columns: minmax(0, 1fr); gap: 0; }
             .flap span { width: 30px; height: 42px; font-size: 1.5rem; }
             .route { gap: 8px; }
             .route-mid { margin-top: 8px; }

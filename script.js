@@ -181,17 +181,17 @@ searchInput?.addEventListener('keydown', (e) => {
 // стилей — скриптом в <head>. Сами цвета тем — в style.css (html[data-theme=…]).
 // p — цвета мини-копии страницы в окне выбора.
 const THEMES = [
-    { id: 'classic', name: 'Классика', desc: 'Чёрные рамки и жёсткие тени — как было',
+    { id: 'classic', name: 'Классика',
       p: { bg: '#f8fafc', card: '#ffffff', border: '#000000', text: '#0f172a', radius: '0px', bw: '2px', shadow: '2px 2px 0 #000' } },
-    { id: 'dark', name: 'Тёмная', desc: 'Минимализм, мягкие тени и скругления',
+    { id: 'dark', name: 'Тёмная',
       p: { bg: '#0d0e11', card: '#16171b', border: '#2a2c33', text: '#ececf0', radius: '6px', bw: '1px', shadow: 'none' } },
-    { id: 'light', name: 'Светлая', desc: 'Чистая и воздушная, в духе Apple',
+    { id: 'light', name: 'Светлая',
       p: { bg: '#f2f2f7', card: '#ffffff', border: 'rgba(0,0,0,0.08)', text: '#1c1c1e', radius: '7px', bw: '1px', shadow: '0 1px 3px rgba(0,0,0,0.08)' } },
-    { id: 'terminal', name: 'Терминал', desc: 'Зелёный код на чёрном экране',
+    { id: 'terminal', name: 'Терминал',
       p: { bg: '#030603', card: '#061006', border: '#1c5e2e', text: '#3cff73', radius: '0px', bw: '1px', shadow: '0 0 6px rgba(60,255,115,0.25)' } },
-    { id: 'sunset', name: 'Закат', desc: 'Тёплый градиент и матовое стекло',
+    { id: 'sunset', name: 'Закат',
       p: { bg: 'linear-gradient(160deg, #ffe3cc, #ffc6c6 45%, #e5c8ff)', card: 'rgba(255,255,255,0.7)', border: 'rgba(255,255,255,0.85)', text: '#3d1f33', radius: '8px', bw: '1px', shadow: '0 2px 6px rgba(160,70,90,0.15)' } },
-    { id: 'ocean', name: 'Океан', desc: 'Глубокий синий и стеклянные карточки',
+    { id: 'ocean', name: 'Океан',
       p: { bg: 'linear-gradient(180deg, #06182b, #0b2a4a 55%, #0f3d63)', card: 'rgba(255,255,255,0.08)', border: 'rgba(125,211,252,0.3)', text: '#e3f2ff', radius: '7px', bw: '1px', shadow: 'none' } }
 ];
 
@@ -236,10 +236,7 @@ function renderThemes() {
         const check = document.createElement('span');
         check.className = 'theme-check';
         name.append(check);
-        const desc = document.createElement('span');
-        desc.className = 'theme-desc';
-        desc.textContent = t.desc;
-        b.append(prev, name, desc);
+        b.append(prev, name);
         b.addEventListener('click', () => setTheme(t.id));
         themeGrid.append(b);
     }
