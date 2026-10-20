@@ -1203,6 +1203,29 @@ body.projects-loading .project-card[data-project-id] {
     text-align: left;
 }
 
+/* Плашка «Почта не подтверждена» */
+.verify-note {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: var(--bw-sm) solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--st-dev);
+    box-shadow: var(--shadow-sm);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    text-align: left;
+    word-break: break-word;
+}
+
+.verify-note[hidden] { display: none; }
+
+.verify-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
 #securityModal .view-switch { margin-bottom: 16px; }
 
 /* ===== Окно «Рейтинг проектов» ===== */

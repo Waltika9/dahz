@@ -18,7 +18,7 @@
     <!-- Подключаем внешние стили -->
     <!-- ?v=5 — версия файла. Меняйте число при каждом изменении style.css / script.js / firebase.js,
          иначе браузер может до 10 минут брать старую копию из кэша -->
-    <link rel="stylesheet" href="style.css?v=15">
+    <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body class="projects-loading">
 
@@ -189,6 +189,16 @@
             <h3 class="modal-title">Управление аккаунтом</h3>
             <p class="form-hint account-who" id="accountWho"></p>
 
+            <!-- Почта не подтверждена: пока нельзя предлагать проекты и создавать коды -->
+            <div class="verify-note" id="verifyNote" hidden>
+                <p>⚠️ Почта не подтверждена. Письмо со ссылкой отправлено на <b id="verifyEmail"></b>.
+                    Пока почта не подтверждена, нельзя предлагать проекты.</p>
+                <div class="verify-actions">
+                    <button class="admin-btn" id="verifySendBtn" type="button">📧 Отправить ещё раз</button>
+                    <button class="admin-btn" id="verifyCheckBtn" type="button">🔄 Я подтвердил</button>
+                </div>
+            </div>
+
             <!-- Вид страницы: с кнопками управления, как у посетителя без аккаунта
                  или глазами тестового пользователя (последний — только у владельца) -->
             <div class="view-switch" id="viewSwitch" role="radiogroup" aria-label="Вид страницы">
@@ -222,7 +232,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно: коды приглашения (только владелец) -->
+    <!-- Модальное окно: коды приглашения (владелец — все, пользователь с правом — свои) -->
     <div id="invitesModal" class="modal-overlay">
         <div class="modal-window modal-wide invites-window">
             <button class="modal-close" id="closeInvitesBtn" type="button">×</button>
@@ -238,7 +248,7 @@
                 </div>
                 <input type="text" id="inviteNote" class="login-input" maxlength="60" placeholder="Для кого (необязательно)" aria-label="Для кого">
                 <button type="submit" class="modal-btn">➕ Добавить код</button>
-                <p class="form-hint">Лимит 0 — без ограничений. После создания код сразу копируется.</p>
+                <p class="form-hint" id="inviteHint">Лимит 0 — без ограничений. После создания код сразу копируется.</p>
             </form>
             <div class="invites-list" id="invitesList"><p class="form-hint">Загрузка...</p></div>
         </div>
@@ -364,6 +374,6 @@
     <!-- Подключаем внешний JS перед закрывающим тегом body -->
     <script src="script.js?v=12"></script>
     <!-- Firebase: вход и статусы проектов (module — чтобы работали import) -->
-    <script type="module" src="firebase.js?v=18"></script>
+    <script type="module" src="firebase.js?v=19"></script>
 </body>
 </html>

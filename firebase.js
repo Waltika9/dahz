@@ -11,7 +11,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/fireba
 import {
     getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
     deleteUser, signOut, onAuthStateChanged, sendPasswordResetEmail,
-    EmailAuthProvider, reauthenticateWithCredential, updatePassword, verifyBeforeUpdateEmail
+    EmailAuthProvider, reauthenticateWithCredential, updatePassword, verifyBeforeUpdateEmail,
+    sendEmailVerification, updateProfile, reload
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
     getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDoc, getDocs, updateDoc,
@@ -50,7 +51,8 @@ const PERMS = {
     visibility: '👁 Скрывать и показывать',
     create:     '➕ Создавать проекты',
     activity:   '📊 Смотреть активность',
-    rank:       '🏆 Менять рейтинг'
+    rank:       '🏆 Менять рейтинг',
+    invites:    '🎟 Создавать коды'
 };
 
 // Тестовый пользователь — «пустышка» в окне «Пользователи». Настоящего аккаунта у него нет:
@@ -58,9 +60,11 @@ const PERMS = {
 const TEST_NAME = 'Тестовый пользователь';
 const TEST_KEY = 'dahz_test_user';
 
-// Коды приглашения: invites/{код} = { limit, used, note, createdAt }.
-// limit — сколько аккаунтов можно зарегистрировать по коду (0 — без ограничений)
+// Коды приглашения: invites/{код} = { limit, used, note, createdAt, createdBy, createdByName }.
+// limit — сколько аккаунтов можно зарегистрировать по коду (0 — без ограничений).
+// Пользователь с правом «Создавать коды» видит только свои коды и даёт по ним не больше 10 аккаунтов
 const INVITE_LIMIT_MAX = 1000;
+const MEMBER_INVITE_LIMIT = 10;
 const INVITE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // без похожих 0/O и 1/I
 
 // Доступ к аккаунтам других пользователей (members/{uid}.perms.accounts):
@@ -282,6 +286,11 @@ function isOwner(p) {
 // Есть ли у текущего пользователя право (у владельца есть все)
 function can(perm) {
     return isAdmin || member?.perms?.[perm] === true;
+}
+
+// Подтверждена ли почта. Владельца и тестового пользователя не ограничиваем
+function emailOk() {
+    return isAdmin || currentUser?.emailVerified === true;
 }
 
 // Доступ к чужим аккаунтам: 'none' | 'view' | 'edit' (у владельца — всё)
@@ -609,8 +618,12 @@ function renderAccountMenu() {
     createProjectBtn.hidden = !menuAdmin() && !member && !asTest();
     rankBtn.hidden = !menuCan('rank');
     tokenBtn.hidden = !menuAdmin();
-    invitesBtn.hidden = !menuAdmin();
+    invitesBtn.hidden = !menuAdmin() && !menuCan('invites');
     usersBtn.hidden = menuAccounts() === 'none';
+
+    // Почта не подтверждена — плашка с кнопками «отправить ещё раз» и «я подтвердил»
+    $('verifyNote').hidden = !currentUser || emailOk() || asTest();
+    $('verifyEmail').textContent = currentUser?.email || '';
     activityBtn.hidden = !menuCan('activity');
     $('securityBtn').hidden = asTest();   // свой пароль владелец меняет в обычном режиме
 
@@ -640,7 +653,49 @@ function renderAccountMenu() {
 function openAccountMenu() {
     renderAccountMenu();
     accountModal.classList.add('active');
+    refreshVerified();
 }
+
+// ----- Подтверждение почты -----
+// Ссылку из письма человек открывает в другой вкладке, поэтому сайт сам переспрашивает Firebase
+async function refreshVerified(showResult = false) {
+    if (!currentUser || isAdmin || currentUser.emailVerified) return;
+    const user = currentUser;
+    try {
+        await reload(user);
+    } catch {
+        return;   // нет интернета — проверим в следующий раз
+    }
+    if (user !== currentUser) return;   // пока ждали, вышли из аккаунта
+    if (user.emailVerified) {
+        // свежий токен — чтобы правила Firestore сразу увидели, что почта подтверждена
+        await user.getIdToken(true).catch(() => {});
+        syncMemberAuth();
+        render();
+        showToast('Почта подтверждена!', 'success');
+    } else if (showResult) {
+        showToast('Почта ещё не подтверждена — откройте ссылку из письма', 'warning');
+    }
+}
+
+$('verifySendBtn').addEventListener('click', async () => {
+    if (!currentUser) return;
+    try {
+        await sendEmailVerification(currentUser);
+        showToast(`Письмо отправлено на ${currentUser.email}. Проверьте и папку «Спам»`, 'success');
+    } catch (err) {
+        showToast(err.code === 'auth/too-many-requests'
+            ? 'Письмо уже отправлено недавно — подождите пару минут'
+            : authErrorText(err.code));
+    }
+});
+
+$('verifyCheckBtn').addEventListener('click', () => refreshVerified(true));
+
+// Вернулся на вкладку (например, после ссылки из письма) — проверяем ещё раз
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshVerified();
+});
 
 function closeAccountMenu() {
     accountModal.classList.remove('active');
@@ -758,6 +813,11 @@ projLink.addEventListener('input', updateCreateFileRow);
 createProjectBtn.addEventListener('click', () => {
     if (asTest()) return openProjectModal(menuCan('create') ? 'create' : 'request');   // только посмотреть форму
     if (isAdmin) return openProjectModal('create');
+    if (!emailOk()) {
+        showToast('Сначала подтвердите почту — ссылка в письме, которое пришло после регистрации', 'warning');
+        openAccountMenu();
+        return;
+    }
     if (!member?.nickname) {
         showToast('У аккаунта нет никнейма — обратитесь к Waltika');
         return;
@@ -1088,7 +1148,9 @@ function renderUsers(snap) {
         // Логин (email); код приглашения видит только владелец
         const meta = document.createElement('div');
         meta.className = 'user-meta';
-        meta.textContent = admin ? `${u.email || ''} · код: ${u.code || '—'}` : (u.email || 'email не записан');
+        // emailVerified в members записывает сам пользователь, когда подтвердит почту
+        const mail = (u.email || 'email не записан') + (u.emailVerified ? ' ✅' : ' ⚠️ почта не подтверждена');
+        meta.textContent = admin ? `${mail} · код: ${u.code || '—'}` : mail;
         row.append(head, meta);
 
         if (level === 'edit') {
@@ -1206,13 +1268,18 @@ rankModal.addEventListener('click', (e) => {
     if (e.target === rankModal) rankModal.classList.remove('active');
 });
 
-// ===== КОДЫ ПРИГЛАШЕНИЯ (только владелец) =====
-// Список кодов и кто по какому зарегистрировался (у пользователя в members записан его код)
+// ===== КОДЫ ПРИГЛАШЕНИЯ =====
+// Владелец видит все коды и кто по какому зарегистрировался (у пользователя в members записан его код).
+// Пользователь с правом «Создавать коды» — только свои, с лимитом до MEMBER_INVITE_LIMIT
 let unsubInvites = null;
 let unsubInviteMembers = null;
-let invites = null;          // [{ id, limit, used, note, createdAt }]
+let invites = null;          // [{ id, limit, used, note, createdAt, createdBy, createdByName }]
 let inviteMembers = null;    // [{ nickname, code }]
 let invitesFixed = false;    // старые коды (из консоли) дополнены счётчиком один раз
+
+// Пределы лимита: владельцу 0 (без ограничений)…1000, остальным 1…10
+const inviteMin = () => (menuAdmin() ? 0 : 1);
+const inviteMax = () => (menuAdmin() ? INVITE_LIMIT_MAX : MEMBER_INVITE_LIMIT);
 
 const INVITE_RE = /^[A-Za-z0-9_-]{3,40}$/;
 
@@ -1233,7 +1300,7 @@ function inviteUsage(inv) {
 
 // Старые коды без счётчика: used = сколько пользователей уже с этим кодом, limit — не меньше 1
 function fixOldInvites() {
-    if (invitesFixed || !invites || !inviteMembers) return;
+    if (invitesFixed || !invites || !inviteMembers || !menuAdmin()) return;
     invitesFixed = true;
     const old = invites.filter(inv => !Number.isInteger(inv.used) || !Number.isInteger(inv.limit));
     if (!old.length) return;
@@ -1255,7 +1322,7 @@ function renderInvites() {
     if (!invites.length) {
         const empty = document.createElement('p');
         empty.className = 'form-hint';
-        empty.textContent = 'Кодов пока нет. Создай первый выше.';
+        empty.textContent = menuAdmin() ? 'Кодов пока нет. Создай первый выше.' : 'У вас пока нет своих кодов. Создайте первый выше.';
         invitesList.appendChild(empty);
         return;
     }
@@ -1280,7 +1347,10 @@ function renderInvites() {
 
         const meta = document.createElement('div');
         meta.className = 'user-meta';
-        meta.textContent = inviteUsage(inv) + (inv.note ? ` · ${inv.note}` : '');
+        // кто создал код — владельцу видно, если это не он сам
+        const author = menuAdmin() && inv.createdBy && inv.createdBy !== ADMIN_UID
+            ? ` · создал: ${inv.createdByName || 'пользователь'}` : '';
+        meta.textContent = inviteUsage(inv) + (inv.note ? ` · ${inv.note}` : '') + author;
 
         // Кто зарегистрировался по этому коду (удалённые пользователи сюда не попадают, но в счётчике остаются)
         const who = inviteMembers.filter(m => m.code === inv.id);
@@ -1298,8 +1368,8 @@ function renderInvites() {
         tools.className = 'invite-tools';
         const limitInput = document.createElement('input');
         limitInput.type = 'number';
-        limitInput.min = 0;
-        limitInput.max = INVITE_LIMIT_MAX;
+        limitInput.min = inviteMin();
+        limitInput.max = inviteMax();
         limitInput.value = lim;
         limitInput.className = 'login-input invite-limit';
         limitInput.setAttribute('aria-label', `Лимит кода ${inv.id}`);
@@ -1330,11 +1400,11 @@ function renderInvites() {
     });
 }
 
-// 0 — без ограничений; пустое или неверное — 1
+// 0 — без ограничений (только у владельца); пустое или неверное — 1
 function clampLimit(value) {
     const n = Math.round(Number(value));
     if (!Number.isFinite(n) || value === '') return 1;
-    return Math.min(INVITE_LIMIT_MAX, Math.max(0, n));
+    return Math.min(inviteMax(), Math.max(inviteMin(), n));
 }
 
 async function copyInvite(code) {
@@ -1347,29 +1417,52 @@ async function copyInvite(code) {
 }
 
 invitesBtn.addEventListener('click', () => {
-    if (!menuAdmin()) return;
+    const admin = menuAdmin();
+    if (!admin && !menuCan('invites')) return;
     inviteCode.value = randomCode();
     inviteLimit.value = 1;
+    inviteLimit.min = inviteMin();
+    inviteLimit.max = inviteMax();
+    $('inviteHint').textContent = admin
+        ? 'Лимит 0 — без ограничений. После создания код сразу копируется.'
+        : `По одному коду — до ${MEMBER_INVITE_LIMIT} аккаунтов. После создания код сразу копируется.`;
     inviteNote.value = '';
     invites = null;
     inviteMembers = null;
     invitesList.innerHTML = '<p class="form-hint">Загрузка...</p>';
     invitesModal.classList.add('active');
 
+    unsubInvites?.();
+    unsubInviteMembers?.();
+    unsubInvites = unsubInviteMembers = null;
+
+    // Глазами тестового пользователя: своих кодов у него нет
+    if (asTest()) {
+        invites = [];
+        inviteMembers = [];
+        renderInvites();
+        return;
+    }
+
     const fail = (err) => {
         console.error(err);
         invitesList.innerHTML = '<p class="form-hint">Не удалось загрузить коды — проверь правила Firestore.</p>';
     };
-    unsubInvites?.();
-    unsubInviteMembers?.();
-    unsubInvites = onSnapshot(invitesCol, (snap) => {
+    // Владелец — все коды, остальные — только свои (правила не дают читать чужие)
+    const source = admin ? invitesCol : query(invitesCol, where('createdBy', '==', currentUser.uid));
+    unsubInvites = onSnapshot(source, (snap) => {
         invites = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderInvites();
     }, fail);
-    unsubInviteMembers = onSnapshot(collection(db, 'members'), (snap) => {
-        inviteMembers = snap.docs.map(d => ({ nickname: d.data().nickname, code: d.data().code }));
-        renderInvites();
-    }, fail);
+    // Кто зарегистрировался — видно тем, кому можно смотреть пользователей
+    if (accountsAccess() === 'none') {
+        inviteMembers = [];
+    } else {
+        unsubInviteMembers = onSnapshot(collection(db, 'members'), (snap) => {
+            inviteMembers = snap.docs.map(d => ({ nickname: d.data().nickname, code: d.data().code }));
+            renderInvites();
+        }, fail);
+    }
 });
 
 $('inviteRandomBtn').addEventListener('click', () => {
@@ -1384,11 +1477,19 @@ inviteForm.addEventListener('submit', (e) => {
         showToast('Код — от 3 до 40 символов: латинские буквы, цифры, «-» и «_»');
         return;
     }
+    if (!emailOk() && !asTest()) {
+        showToast('Сначала подтвердите почту — это в «Управлении аккаунтом»', 'warning');
+        return;
+    }
     const lim = clampLimit(inviteLimit.value);
     run(async () => {
         const ref = doc(db, 'invites', code);
         if ((await getDoc(ref)).exists()) throw new Error(`Код ${code} уже есть`);
-        await setDoc(ref, { limit: lim, used: 0, note: inviteNote.value.trim().slice(0, 60), createdAt: serverTimestamp() });
+        await setDoc(ref, {
+            limit: lim, used: 0, note: inviteNote.value.trim().slice(0, 60), createdAt: serverTimestamp(),
+            createdBy: currentUser.uid,
+            createdByName: isAdmin ? ADMIN_NAME : member.nickname
+        });
         inviteCode.value = randomCode();
         inviteNote.value = '';
         copyInvite(code);
@@ -1958,7 +2059,8 @@ function watchMember() {
         if (!can('activity')) closeActivity();   // право забрали — окно закрывается
         if (accountsAccess() === 'none') closeUsers();
         if (!can('rank')) rankModal.classList.remove('active');
-        syncMemberEmail();
+        if (!can('invites')) closeInvites();
+        syncMemberAuth();
         updateVisitUser();
         render();
     }, () => {
@@ -1967,10 +2069,19 @@ function watchMember() {
     });
 }
 
-// Пользователь сменил email через письмо — обновляем его и в members, чтобы владелец видел новый логин
-function syncMemberEmail() {
-    if (!member || !currentUser?.email || member.email === currentUser.email) return;
-    updateDoc(doc(db, 'members', currentUser.uid), { email: currentUser.email })
+// Данные аккаунта Firebase ↔ сайт:
+// - имя аккаунта = ник (его Firebase подставляет в письма вместо %DISPLAY_NAME%);
+// - email и «почта подтверждена» копируем в members, чтобы владелец видел их в «Пользователях»
+function syncMemberAuth() {
+    const user = currentUser;
+    if (!user) return;
+    const name = isAdmin ? ADMIN_NAME : member?.nickname;
+    if (name && user.displayName !== name) {
+        updateProfile(user, { displayName: name }).catch(() => { /* не страшно — попробуем при следующем входе */ });
+    }
+    if (!member || !user.email) return;
+    if (member.email === user.email && member.emailVerified === user.emailVerified) return;
+    updateDoc(doc(db, 'members', user.uid), { email: user.email, emailVerified: user.emailVerified })
         .catch((err) => console.warn('Email в members не обновлён:', err.code || err.message));
 }
 
@@ -2023,10 +2134,15 @@ onAuthStateChanged(auth, async (user) => {
     if (accountsAccess() === 'none') closeUsers();
     if (!can('activity')) closeActivity();
     if (!can('rank')) rankModal.classList.remove('active');
-    if (!isAdmin) closeInvites();
+    if (!can('invites')) closeInvites();
     if (!user) closeSecurity();
     watchMember();
     render();
+
+    // Владельцу — имя для писем; остальным это делает watchMember, когда загрузится ник
+    if (isAdmin) syncMemberAuth();
+    // Почту могли подтвердить, пока сайт был закрыт — переспрашиваем Firebase
+    if (user && !isAdmin && !user.emailVerified) refreshVerified();
 });
 
 // Переключение между «Вход» и «Регистрация» в одном окне
@@ -2216,7 +2332,13 @@ registerForm.addEventListener('submit', async (e) => {
         await batch.commit();
         // Ник подтянется сам: watchMember следит за members/{uid}
         closeLogin();
-        showToast('Аккаунт создан!', 'success');
+
+        // Письмо для подтверждения почты. Сначала имя аккаунта — оно будет в приветствии письма
+        await updateProfile(cred.user, { displayName: nickname }).catch(() => {});
+        const sent = await sendEmailVerification(cred.user).then(() => true, () => false);
+        showToast(sent
+            ? 'Аккаунт создан! Подтвердите почту — ссылка в письме (загляните и в «Спам»)'
+            : 'Аккаунт создан! Письмо для подтверждения почты можно отправить в «Управлении аккаунтом»', 'success');
     } catch (err) {
         if (cred) {
             // Аккаунт создался, а код не подошёл — убираем аккаунт
