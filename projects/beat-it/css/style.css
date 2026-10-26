@@ -1,0 +1,2968 @@
+/* BEAT IT by Waltika — сплошной чёрный фон, толстые белые рамки, по мотивам osu!lazer */
+
+:root {
+    --line: 4px;                               /* толщина белых рамок */
+    --round: 16px;
+    --gray: rgba(140, 140, 140, 0.28);         /* полупрозрачные серые плашки */
+    --dim: rgba(255, 255, 255, 0.6);
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --spring: cubic-bezier(0.3, 1.6, 0.5, 1);      /* с лёгким перелётом — «пружинка» */
+    --font: 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --logo-w: min(86vw, 640px, 130vh);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+}
+
+body {
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 3px dashed #fff;
+    outline-offset: 6px;
+}
+
+/* ===== Наведение на кнопки: приподнимаются пружинкой, при нажатии — вдавливаются ===== */
+
+.act-btn,
+.modal-btn,
+.big-btn,
+.pause-btn,
+.home-btn {
+    transition: background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring), box-shadow 0.3s ease;
+}
+
+.act-btn:hover,
+.modal-btn:hover,
+.big-btn:hover,
+.pause-btn:hover,
+.home-btn:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+}
+
+.act-btn:active,
+.modal-btn:active,
+.big-btn:active,
+.pause-btn:active,
+.home-btn:active {
+    transform: translateY(0) scale(0.96);
+    transition-duration: 0.08s;
+}
+
+/* ===== Списки, которые листаются мышью (scroll.js) =====
+   Если список «перетянули» за край, в начале или в конце появляется пустое место.
+   Отрицательный отступ гасит промежуток (gap), пока места нет */
+
+.drag-scroll::before,
+.drag-scroll::after {
+    content: '';
+    display: block;
+    flex: none;
+}
+
+.drag-scroll::before {
+    width: var(--over-a-x, 0px);
+    height: var(--over-a-y, 0px);
+    margin-bottom: calc(-1 * var(--gap, 0px));
+}
+
+.drag-scroll::after {
+    width: var(--over-b-x, 0px);
+    height: var(--over-b-y, 0px);
+    margin-top: calc(-1 * var(--gap, 0px));
+}
+
+/* Список листается влево-вправо */
+.drag-scroll.is-x::before {
+    margin: 0 calc(-1 * var(--gap, 0px)) 0 0;
+}
+
+.drag-scroll.is-x::after {
+    margin: 0 0 0 calc(-1 * var(--gap, 0px));
+}
+
+.drag-scroll.is-dragging {
+    cursor: grabbing;
+}
+
+.drag-scroll.is-dragging * {
+    pointer-events: none;                      /* пока тянем, карточки не реагируют на наведение */
+}
+
+/* ===== Предупреждение ===== */
+
+.disclaimer {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: #000;
+    transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+}
+
+.disclaimer.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.disclaimer-box {
+    width: min(360px, 100%);
+    aspect-ratio: 1;                           /* квадрат; если текст не влезет — вырастет вниз */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 28px;
+    text-align: center;
+    background: var(--gray);
+    border-radius: 28px;
+    animation: box-in 0.7s var(--ease-out) both;
+    transition: transform 0.5s ease;
+}
+
+.disclaimer.is-hidden .disclaimer-box {
+    transform: scale(0.94);
+}
+
+.disclaimer-icon {
+    width: 52px;
+    height: 52px;
+}
+
+.disclaimer h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.disclaimer p {
+    font-size: 17px;
+    line-height: 1.45;
+}
+
+.disclaimer .disclaimer-hint {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--dim);
+    animation: hint-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes box-in {
+    from { opacity: 0; transform: scale(0.9); }
+}
+
+@keyframes hint-pulse {
+    50% { opacity: 0.45; }
+}
+
+/* ===== Загрузка: белая дуга по часовой, серый квадрат против ===== */
+
+.loader {
+    position: fixed;
+    right: calc(24px + env(safe-area-inset-right, 0px));
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    z-index: 11;
+    width: 56px;
+    height: 56px;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.loader.is-hidden {
+    opacity: 0;
+    transform: scale(0.6);
+}
+
+.loader-box {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: var(--gray);
+    animation: spin 2.6s linear infinite reverse;
+}
+
+.loader-arc {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    animation: spin 1.9s linear infinite;
+}
+
+.loader-arc circle {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 46 100;                  /* дуга чуть больше половины круга */
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===== Меню ===== */
+
+.menu {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    visibility: hidden;
+}
+
+body.is-menu .menu {
+    visibility: visible;
+}
+
+/* Логотип: в середине, а при открытых уровнях уезжает влево */
+.logo-stage {
+    --lx: 0px;
+    --ly: 0px;
+    --ls: 1;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) translate(var(--lx), var(--ly)) scale(var(--ls));
+    transition: transform 0.75s var(--ease-out);
+}
+
+body.is-levels .logo-stage {
+    --lx: -25vw;
+    --ls: 0.62;
+}
+
+.logo-fall {
+    position: relative;
+    opacity: 0;                                /* пока логотип не начал падать */
+}
+
+.logo-waves {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.wave {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.logo {
+    position: relative;
+    display: block;
+    border-radius: 24px;
+    transition: transform 0.3s var(--ease-out);
+}
+
+body.is-ready .logo:hover {
+    transform: scale(1.04);
+}
+
+body.is-ready .logo:active {
+    transform: scale(0.97);
+}
+
+.logo-svg {
+    display: block;
+    width: var(--logo-w);
+    height: auto;
+    overflow: visible;
+}
+
+/* ===== Уровни ===== */
+
+.levels {
+    position: absolute;
+    right: 6vw;
+    top: 50%;
+    width: min(460px, 42vw);
+    max-height: 84vh;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    pointer-events: none;
+}
+
+body.is-levels .levels {
+    pointer-events: auto;
+}
+
+/* Заголовок списка и кнопка «Создать уровень» */
+.levels-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 6px 0 24px;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.25s ease, transform 0.4s var(--ease-out);
+}
+
+body.is-levels .levels-head {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.08s;
+}
+
+.levels-title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+}
+
+.act-btn.create-btn {
+    flex: none;
+    padding: 8px 14px;
+}
+
+.create-btn:hover svg {
+    transform: rotate(90deg);
+}
+
+/* Подпись перед своими уровнями */
+.levels-sep {
+    padding: 10px 0 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    opacity: 0;
+    transform: translateY(46px);
+    transition: opacity 0.25s ease, transform 0.4s var(--ease-out);
+}
+
+body.is-levels .levels-sep {
+    opacity: 1;
+    transform: none;
+    transition-delay: calc(var(--i) * 55ms + 100ms);
+}
+
+.levels-list {
+    --gap: 14px;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 6px 6px 16px;                 /* место, чтобы карточка могла сдвинуться при наведении */
+    scrollbar-width: none;
+}
+
+.levels-list::-webkit-scrollbar,
+.modal-box::-webkit-scrollbar {
+    display: none;
+}
+
+/* Обёртка быстро выпрыгивает снизу по очереди, а сама карточка реагирует на наведение */
+.level {
+    opacity: 0;
+    transform: translateY(46px);
+    transition: opacity 0.25s ease, transform 0.4s var(--ease-out);
+}
+
+@supports (animation-timeline: view()) {
+    .level {
+        animation: level-depth linear both;
+        animation-timeline: view();
+        animation-range: cover 0% cover 100%;
+    }
+
+    @keyframes level-depth {
+        0%, 100% {
+            filter: brightness(0.35);
+            scale: 0.88;
+        }
+        25%, 75% {
+            filter: brightness(1);
+            scale: 1;
+        }
+    }
+
+    .levels-list > .level:first-of-type,
+    .levels-list > .level:last-of-type {
+        animation: none;
+        filter: none;
+        scale: none;
+    }
+}
+
+body.is-levels .level {
+    opacity: 1;
+    transform: none;
+    transition-delay: calc(var(--i) * 55ms + 120ms);
+}
+
+.level-card {
+    --ink: #000;                               /* цвет значков внутри белых квадратиков = цвет фона */
+    display: block;
+    width: 100%;
+    padding: 16px 18px;
+    text-align: left;
+    background: #000;
+    border: var(--line) solid #fff;
+    border-radius: var(--round);
+    transition: transform 0.2s var(--ease-out), background 0.15s ease, color 0.15s ease;
+}
+
+/* Наведение и открытый уровень — карточка белеет */
+.level-card:hover,
+.level.is-open .level-card {
+    --ink: #fff;
+    background: #fff;
+    color: #000;
+}
+
+.level-card:hover {
+    transform: translateX(-10px);
+}
+
+.level-card:active {
+    transform: translateX(-10px) scale(0.98);
+}
+
+/* Заглушки: пунктирная рамка и бледный текст */
+.level-card.is-stub {
+    border-style: dashed;
+    color: var(--dim);
+}
+
+.level-card.is-stub:hover {
+    --ink: #000;
+    background: #000;
+    color: #fff;
+}
+
+.level-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.level-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.level-sub {
+    margin-top: 3px;
+    font-size: 14px;
+    opacity: 0.75;
+}
+
+.level-names {
+    min-width: 0;
+}
+
+.level-title,
+.level-sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.level-meta {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: right;
+    opacity: 0.8;
+}
+
+/* Песня уровня загружается */
+.level.is-loading .level-meta {
+    animation: hint-pulse 1s ease-in-out infinite;
+}
+
+.level-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 3px dashed currentColor;
+    border-radius: 12px;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.level-wave {
+    position: relative;
+    height: 34px;
+    margin-top: 12px;
+}
+
+.level-wave canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.level-card:hover .level-wave canvas,
+.level.is-open .level-wave canvas {
+    filter: invert(1);                         /* белые полоски становятся чёрными на белой карточке */
+}
+
+.level-head {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    left: 0;
+    width: 3px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.level.is-current .level-head {
+    opacity: 1;
+}
+
+.level-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.level-tags > span:not(.level-mini) {
+    padding: 3px 10px;
+    border: 2px solid currentColor;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* Откуда уровень: залитая плашка (на белой карточке — чёрная) */
+.level-tags > span.level-source {
+    background: #fff;
+    border-color: #fff;
+    color: #000;
+}
+
+.level-card:hover .level-tags > span.level-source,
+.level.is-open .level-tags > span.level-source {
+    background: #000;
+    border-color: #000;
+    color: #fff;
+}
+
+.level-card.is-stub:hover .level-tags > span.level-source {
+    background: #fff;
+    border-color: #fff;
+    color: #000;
+}
+
+/* Все сложности уровня маленькими квадратиками */
+.level-mini {
+    display: inline-flex;
+    gap: 4px;
+}
+
+/* ===== Квадратики сложностей ===== */
+
+.dif-icon,
+.dif-mini {
+    flex-shrink: 0;
+    display: block;
+}
+
+.dif-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.dif-mini {
+    width: 18px;
+    height: 18px;
+}
+
+.dif-box {
+    fill: currentColor;
+}
+
+.dif-mark {
+    fill: var(--ink, #000);
+    stroke: var(--ink, #000);
+    stroke-width: 0.8;
+    stroke-linejoin: round;
+}
+
+/* ===== Сложности под открытым уровнем ===== */
+
+.level-diffs {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s var(--ease-out);
+}
+
+.level.is-open .level-diffs {
+    grid-template-rows: 1fr;
+}
+
+.level-diffs-in {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 4px 0 26px;
+}
+
+.diff {
+    --ink: #000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 9px 16px 9px 10px;
+    text-align: left;
+    background: #000;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.diff:last-child {
+    margin-bottom: 4px;
+}
+
+/* Появляются снизу по очереди (анимацией, а не переходом — чтобы не мешать наведению) */
+.level.is-open .diff {
+    animation: rise 0.35s var(--ease-out) backwards;
+    animation-delay: calc(var(--d) * 45ms + 80ms);
+}
+
+.diff:hover {
+    --ink: #fff;
+    background: #fff;
+    color: #000;
+    transform: translateX(-8px);
+}
+
+.diff:hover .dif-icon {
+    transform: rotate(-8deg) scale(1.12);
+}
+
+.dif-icon {
+    transition: transform 0.3s var(--spring);
+}
+
+.diff:active {
+    background: #ddd;
+    transform: translateX(-8px) scale(0.98);
+    transition-duration: 0.08s;
+}
+
+@keyframes rise {
+    from { opacity: 0; transform: translateY(24px); }
+}
+
+.diff-name {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.diff-pips {
+    display: flex;
+    gap: 4px;
+}
+
+.diff-pips i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.25;
+}
+
+.diff-pips i.on {
+    opacity: 1;
+}
+
+/* ===== «Отправить уровень» и «Опции» под открытым уровнем ===== */
+
+.level-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 4px;                          /* место, чтобы кнопки могли приподняться при наведении */
+}
+
+.level.is-open .level-actions {
+    animation: rise 0.35s var(--ease-out) 60ms backwards;
+}
+
+.act-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    background: #000;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.act-btn:hover {
+    background: #fff;
+    color: #000;
+}
+
+/* Значки на кнопках оживают при наведении */
+.act-btn svg {
+    transition: transform 0.3s var(--spring);
+}
+
+.act-btn[data-act="share"]:hover svg {
+    animation: nudge 0.7s ease-in-out infinite;
+}
+
+.act-btn[data-act="options"]:hover svg {
+    transform: rotate(180deg);
+}
+
+/* «Изменить» и «Удалить» у своих уровней — квадратные, только со значком */
+.act-btn.is-icon {
+    flex: none;
+    width: 46px;
+    padding: 10px 0;
+}
+
+.act-btn[data-act="edit"]:hover svg {
+    transform: rotate(-12deg) translateY(-1px);
+}
+
+.act-btn[data-act="remove"]:hover svg {
+    animation: shake-x 0.4s ease-in-out;
+}
+
+@keyframes shake-x {
+    25% { transform: translateX(-2px) rotate(-6deg); }
+    75% { transform: translateX(2px) rotate(6deg); }
+}
+
+@keyframes nudge {
+    50% { transform: translateY(3px); }
+}
+
+.act-btn svg,
+.opt-flag svg {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Число включённых опций */
+.opt-count {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fff;
+    color: #000;
+    font-size: 13px;
+    line-height: 22px;
+    text-align: center;
+}
+
+.act-btn:hover .opt-count {
+    background: #000;
+    color: #fff;
+}
+
+.opt-count[hidden],
+.level-tags > span.opt-flag[hidden] {
+    display: none;
+}
+
+/* Знак на карточке: опции включены */
+.level-tags > span.opt-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-style: dashed;
+}
+
+.opt-flag svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ===== Окна (опции, выход) ===== */
+
+.modal,
+.pause-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.75);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+}
+
+.modal.is-open,
+.pause-menu.is-open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.25s ease;
+}
+
+.modal-box {
+    --gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    width: min(440px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    scrollbar-width: none;                     /* листается колесом и мышью, полоса не нужна */
+    padding: 24px;
+    border: var(--line) solid #fff;
+    border-radius: 24px;
+    background: #000;
+    transform: translateY(30px) scale(0.9);
+    transition: transform 0.45s var(--spring);
+}
+
+.modal.is-open .modal-box,
+.pause-menu.is-open .modal-box {
+    transform: none;
+}
+
+/* Окно «выпрыгивает», а его содержимое появляется снизу по очереди */
+.modal.is-open .modal-box > *,
+.pause-menu.is-open .modal-box > *,
+.modal.is-open .opt {
+    animation: rise 0.4s var(--ease-out) backwards;
+}
+
+.modal.is-open .modal-box > :nth-child(2),
+.pause-menu.is-open .modal-box > :nth-child(2) { animation-delay: 0.05s; }
+.modal.is-open .modal-box > :nth-child(3),
+.pause-menu.is-open .modal-box > :nth-child(3) { animation-delay: 0.1s; }
+.modal.is-open .modal-box > :nth-child(4),
+.pause-menu.is-open .modal-box > :nth-child(4) { animation-delay: 0.15s; }
+.modal.is-open .modal-box > :nth-child(5) { animation-delay: 0.2s; }
+.modal.is-open .modal-box > :nth-child(n + 6) { animation-delay: 0.25s; }
+.modal.is-open .opt:nth-child(2) { animation-delay: 0.14s; }
+.modal.is-open .opt:nth-child(3) { animation-delay: 0.18s; }
+.modal.is-open .opt:nth-child(4) { animation-delay: 0.22s; }
+.modal.is-open .opt:nth-child(5) { animation-delay: 0.26s; }
+.modal.is-open .opt:nth-child(6) { animation-delay: 0.3s; }
+.modal.is-open .opt:nth-child(7) { animation-delay: 0.34s; }
+
+.modal-box h2 {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.modal-box p {
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--dim);
+}
+
+.modal-btn {
+    padding: 12px 16px;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    background: #000;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.modal-btn:hover {
+    background: #fff;
+    color: #000;
+}
+
+.modal-btn.is-main {
+    background: #fff;
+    color: #000;
+}
+
+.modal-btn.is-main:hover {
+    background: #d9d9d9;
+}
+
+.modal-row {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-row .modal-btn {
+    flex: 1;
+}
+
+.modal-btn:disabled,
+.mini-btn:disabled,
+.seg button:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* Опасные кнопки (удалить) — пунктирная рамка */
+.modal-btn.is-danger,
+.mini-btn.is-danger {
+    border-style: dashed;
+}
+
+/* Вопрос «Точно?» — поверх всего, даже поверх других окон */
+.ask-modal {
+    z-index: 55;
+}
+
+.ask-modal .modal-box {
+    width: min(400px, 100%);
+}
+
+/* ===== Поля форм (создание уровня, редактор) ===== */
+
+input,
+textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    font: inherit;
+    color: inherit;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.field > span,
+.ed-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dim);
+}
+
+.field b,
+.ed-label b {
+    color: #fff;
+}
+
+.field-name {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.modal-box .field-note,
+.field-note {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--dim);
+}
+
+.text {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 3px solid rgba(255, 255, 255, 0.45);
+    border-radius: 12px;
+    background: #000;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.text:hover,
+.text:focus {
+    border-color: #fff;
+}
+
+.text::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* Выпадающие списки редактора — свои кнопки и меню в стиле игры */
+.game-select {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.game-select-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-right: 10px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.game-select-button > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.game-select-button svg {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.18s ease;
+}
+
+.game-select-button[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.game-select-menu {
+    position: fixed;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: none;
+    user-select: none;
+    scrollbar-color: rgba(255, 255, 255, 0.8) #111;
+    scrollbar-width: thin;
+    padding: 5px;
+    border: 2px solid #fff;
+    border-radius: 12px;
+    background: #000;
+    box-shadow: 6px 6px 0 rgba(255, 255, 255, 0.25);
+}
+
+.game-select-menu.is-dragging,
+.game-select-menu.is-dragging .game-select-option {
+    cursor: grabbing;
+}
+
+.game-select-menu[hidden] {
+    display: none;
+}
+
+.game-select-option {
+    flex: none;
+    width: 100%;
+    padding: 8px 10px;
+    border: 2px solid transparent;
+    border-radius: 7px;
+    background: #000;
+    color: #fff;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.game-select-option:hover,
+.game-select-option:focus-visible,
+.game-select-option.is-on {
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+    outline: none;
+}
+
+/* Уменьшаем системные стрелки числа, чтобы они не съедали место у значения */
+.ed-panel input[type="number"].text {
+    padding-right: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.ed-panel input[type="number"].text::-webkit-inner-spin-button,
+.ed-panel input[type="number"].text::-webkit-outer-spin-button {
+    width: 16px;
+    height: 22px;
+    margin: 0 0 0 4px;
+    opacity: 0.9;
+    filter: grayscale(1) brightness(1.5);
+    cursor: pointer;
+}
+
+/* Ползунок: белая дорожка и круглая ручка */
+.range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    background: none;
+    cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.range::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -7px;
+    border: 3px solid #000;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s var(--spring);
+}
+
+.range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 3px solid #000;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.range:hover::-webkit-slider-thumb {
+    transform: scale(1.2);
+}
+
+.range:focus-visible {
+    outline: 2px dashed #fff;
+    outline-offset: 2px;
+}
+
+/* Кнопка выбора файла */
+.file-btn,
+.mini-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 9px 14px;
+    border: 3px solid #fff;
+    border-radius: 12px;
+    background: #000;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.file-btn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-btn.is-wide {
+    width: 100%;
+    padding: 12px 14px;
+    border-style: dashed;
+}
+
+.file-btn:hover,
+.mini-btn:hover {
+    background: #fff;
+    color: #000;
+    transform: translateY(-2px);
+}
+
+.file-btn:active,
+.mini-btn:active {
+    transform: scale(0.96);
+    transition-duration: 0.08s;
+}
+
+.mini-btn.is-main {
+    background: #fff;
+    color: #000;
+}
+
+.mini-btn.is-main:hover {
+    background: #d9d9d9;
+}
+
+/* Переключатель из нескольких кнопок */
+.seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.seg button {
+    flex: 1 1 auto;
+    padding: 8px 10px;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.seg button:hover {
+    border-color: #fff;
+    transform: translateY(-2px);
+}
+
+.seg button.is-on {
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+}
+
+/* Галочка-переключатель с подписью */
+.tgl {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+}
+
+.tgl .switch {
+    width: 42px;
+    height: 24px;
+}
+
+.tgl .switch i {
+    width: 12px;
+    height: 12px;
+}
+
+.tgl.is-on .switch {
+    background: #fff;
+}
+
+.tgl.is-on .switch i {
+    background: #000;
+    transform: translateX(18px);
+}
+
+.tgl.is-mixed .switch i {
+    transform: translateX(9px);                /* у выбранных нот по-разному */
+}
+
+.tgl:hover .switch {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+}
+
+/* ===== Создать уровень ===== */
+
+.pick-btn {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    text-align: left;
+    border: 3px solid #fff;
+    border-radius: 16px;
+    background: #000;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring), box-shadow 0.3s ease;
+}
+
+.pick-btn svg {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.3s var(--spring);
+}
+
+.pick-btn span {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pick-btn b {
+    font-size: 18px;
+}
+
+.pick-btn small {
+    font-size: 13px;
+    line-height: 1.4;
+    opacity: 0.7;
+}
+
+.pick-btn:hover {
+    background: #fff;
+    color: #000;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+}
+
+.pick-btn:hover svg {
+    transform: rotate(-10deg) scale(1.1);
+}
+
+.pick-btn:active {
+    transform: scale(0.97);
+    transition-duration: 0.08s;
+}
+
+.pick-link {
+    padding: 4px 2px;
+    font-size: 14px;
+    color: var(--dim);
+    text-align: center;
+    cursor: pointer;
+    text-decoration: underline dashed rgba(255, 255, 255, 0.4);
+    text-underline-offset: 4px;
+}
+
+.pick-link:hover {
+    color: #fff;
+}
+
+.pick-link b {
+    color: #fff;
+}
+
+.diff-picks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 8px;
+}
+
+.diff-pick {
+    --ink: #000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 3px dashed rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--dim);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.diff-pick .dif-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.diff-pick:hover {
+    transform: translateY(-2px);
+    border-color: #fff;
+}
+
+.diff-pick.is-on {
+    --ink: #fff;
+    border-style: solid;
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+}
+
+/* ===== Фон: выбор файла, предпросмотр, обрезка видео ===== */
+
+.bgf {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bgf-row {
+    display: flex;
+    gap: 8px;
+}
+
+.bgf-row .file-btn {
+    flex: 1;
+    border-style: dashed;
+}
+
+.bgf-preview {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    background: #000;
+}
+
+.bgf-media,
+.bgf-media img,
+.bgf-media video,
+.bgf-shade {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.bgf-media img,
+.bgf-media video {
+    object-fit: cover;
+}
+
+.bgf-shade {
+    background: #000;
+}
+
+.bgf-name {
+    position: absolute;
+    left: 10px;
+    bottom: 8px;
+    max-width: calc(100% - 20px);
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #000;
+    font-size: 12px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bgf-video,
+.bgf-end {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bgf p {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--dim);
+}
+
+.bgf p b {
+    color: #fff;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* Фон уровня за нотами (картинка или видео) */
+.game-bg,
+.ed-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.backdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Опции: строки с переключателями */
+.opt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.opt {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    text-align: left;
+    border: 3px solid rgba(255, 255, 255, 0.35);
+    border-radius: 14px;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.3s var(--spring);
+}
+
+.opt:hover,
+.opt.is-on {
+    border-color: #fff;
+}
+
+.opt:hover {
+    transform: translateX(4px) scale(1.01);
+}
+
+.opt:active {
+    transform: scale(0.98);
+    transition-duration: 0.08s;
+}
+
+.opt.is-on {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.opt-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.opt-text b {
+    font-size: 16px;
+}
+
+.opt-text small {
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--dim);
+}
+
+.switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 46px;
+    height: 26px;
+    border: 3px solid #fff;
+    border-radius: 999px;
+    transition: background 0.2s ease;
+}
+
+.switch i {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s var(--ease-out), background 0.2s ease;
+}
+
+.opt.is-on .switch {
+    background: #fff;
+}
+
+.opt.is-on .switch i {
+    background: #000;
+    transform: translateX(20px);
+}
+
+/* ===== Уровень ===== */
+
+body.is-game .menu,
+body.is-game .now-playing,
+body.is-game .flash,
+body.is-editor .menu,
+body.is-editor .now-playing,
+body.is-editor .flash {
+    visibility: hidden;
+}
+
+.game,
+.results {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+}
+
+.game {
+    z-index: 30;
+    touch-action: none;
+}
+
+.results {
+    z-index: 35;
+}
+
+.game.is-on,
+.results.is-on {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.4s ease;
+}
+
+.game-canvas,
+.results-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Слева сверху: линия жизни, счёт, часы */
+.hud {
+    position: absolute;
+    top: calc(20px + env(safe-area-inset-top, 0px));
+    left: calc(20px + env(safe-area-inset-left, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.hp {
+    width: min(300px, 48vw);
+    height: 16px;
+    padding: 2px;
+    border: 3px solid #fff;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.hp i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #fff;
+    transform-origin: left center;
+}
+
+.score-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.score {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.score-add {
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+}
+
+/* Появляется резко, а через пару секунд без новых очков исчезает */
+.score-add.is-pop {
+    animation: score-pop 2.3s ease forwards;
+}
+
+@keyframes score-pop {
+    0% { opacity: 0; transform: translateX(-8px) scale(1.8); }
+    7% { opacity: 1; transform: none; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.clock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Круг-часы: заполняется по мере уровня */
+.progress {
+    width: 26px;
+    height: 26px;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background: conic-gradient(#fff calc(var(--p, 0) * 360deg), transparent 0);
+}
+
+.stopwatch {
+    font-size: 16px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.combo {
+    position: absolute;
+    left: calc(20px + env(safe-area-inset-left, 0px));
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    font-size: 30px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+
+.pause-btn {
+    position: absolute;
+    top: calc(20px + env(safe-area-inset-top, 0px));
+    right: calc(20px + env(safe-area-inset-right, 0px));
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    background: #000;
+}
+
+.pause-btn:hover {
+    background: #fff;
+    color: #000;
+}
+
+.pause-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+/* Включённые опции — под паузой */
+.game-mods {
+    position: absolute;
+    top: calc(78px + env(safe-area-inset-top, 0px));
+    right: calc(20px + env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.game-mods span {
+    padding: 3px 10px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #000;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* Название перед началом песни */
+.game-intro {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 0.5s ease, transform 0.6s var(--ease-out);
+}
+
+.game-intro.is-on {
+    opacity: 1;
+    transform: none;
+}
+
+.intro-box {
+    padding: 22px 30px;
+    border: var(--line) solid #fff;
+    border-radius: 22px;
+    background: #000;
+    text-align: center;
+}
+
+.intro-title {
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.intro-sub {
+    margin-top: 4px;
+    font-size: 16px;
+    color: var(--dim);
+}
+
+.intro-diff {
+    --ink: #000;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.game-fail {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    font-family: Anton, Impact, sans-serif;
+    font-size: clamp(56px, 12vw, 140px);
+    letter-spacing: 0.04em;
+    color: transparent;
+    -webkit-text-stroke: 3px #fff;
+    opacity: 0;
+    transform: translate(-50%, -50%) skewX(-11deg) scale(1.3);
+    transition: opacity 0.3s ease, transform 0.5s var(--ease-out);
+    pointer-events: none;
+}
+
+.game-fail.is-on {
+    opacity: 1;
+    transform: translate(-50%, -50%) skewX(-11deg);
+}
+
+/* ===== Результат ===== */
+
+.results-actions {
+    position: absolute;
+    right: var(--pad, 40px);
+    bottom: var(--pad, 40px);
+    display: flex;
+    gap: 14px;
+}
+
+.big-btn {
+    padding: 15px 24px;
+    border: var(--line) solid #fff;
+    border-radius: 16px;
+    background: #000;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+/* Кнопки результата появляются последними — после оценки */
+.results-actions .big-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.results.is-ready .big-btn {
+    opacity: 1;
+    pointer-events: auto;
+    animation: rise 0.45s var(--spring) backwards;
+}
+
+.results.is-ready .big-btn + .big-btn {
+    animation-delay: 0.08s;
+}
+
+.big-btn:hover {
+    background: #fff;
+    color: #000;
+}
+
+/* ===== Кнопка «на главную сайта» (слева сверху, только в списке уровней) ===== */
+
+.home-btn {
+    position: absolute;
+    top: calc(20px + env(safe-area-inset-top, 0px));
+    left: calc(20px + env(safe-area-inset-left, 0px));
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border: var(--line) solid #fff;
+    border-radius: 14px;
+    background: #000;
+    color: #fff;
+    opacity: 0;
+    translate: 0 -16px;                        /* появление — через translate, а transform — для наведения */
+    pointer-events: none;
+    transition: opacity 0.3s ease, translate 0.45s var(--ease-out), background 0.15s ease, color 0.15s ease,
+        transform 0.3s var(--spring), box-shadow 0.3s ease;
+}
+
+body.is-levels .home-btn {
+    opacity: 1;
+    translate: 0 0;
+    pointer-events: auto;
+}
+
+.home-btn svg {
+    transition: transform 0.3s var(--spring);
+}
+
+.home-btn:hover svg {
+    transform: translateY(-2px) scale(1.1);
+}
+
+.home-btn:hover {
+    background: #fff;
+    color: #000;
+}
+
+.home-btn svg {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* ===== «Сейчас играет» (справа сверху) ===== */
+
+.now-playing {
+    position: fixed;
+    top: calc(20px + env(safe-area-inset-top, 0px));
+    right: calc(20px + env(safe-area-inset-right, 0px));
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: calc(100vw - 80px);
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(-16px);
+    transition: opacity 0.4s ease, transform 0.5s var(--ease-out);
+    pointer-events: none;
+}
+
+.now-playing.is-shown {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+.now-playing-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.skip-track {
+    display: grid;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    transition: transform 0.2s var(--spring), opacity 0.2s ease;
+}
+
+.skip-track svg {
+    width: 22px;
+    height: 22px;
+    fill: #fff;
+    stroke: none;
+}
+
+.skip-track:hover {
+    transform: scale(1.12);
+    opacity: 0.75;
+}
+
+.skip-track:active {
+    transform: scale(0.9);
+}
+
+/* ===== Вспышки ===== */
+
+.flash {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 24vw;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.flash-left {
+    left: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.5), transparent);
+}
+
+.flash-right {
+    right: 0;
+    background: linear-gradient(270deg, rgba(255, 255, 255, 0.5), transparent);
+}
+
+.flash-full {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ===== Загрузка уровня перетаскиванием ===== */
+
+.file-drop {
+    position: fixed;
+    inset: 16px;
+    z-index: 55;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    border: 4px dashed #fff;
+    border-radius: 24px;
+    background: rgba(0, 0, 0, 0.86);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.file-drop.is-on {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.18s ease;
+}
+
+.file-drop-box {
+    max-width: 520px;
+    padding: 24px;
+    border: 3px solid #fff;
+    border-radius: 16px;
+    font-size: clamp(20px, 5vw, 32px);
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 8px 8px 0 #fff;
+}
+
+/* ===== Сообщение снизу ===== */
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    z-index: 60;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    padding: 12px 20px;
+    border-radius: 14px;
+    background: #fff;
+    color: #000;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, 16px);
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+}
+
+.toast.is-shown {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#createModal .modal-box {
+    width: min(520px, 100%);
+}
+
+/* ===== Редактор ===== */
+
+.editor {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto 150px 26px;
+    background: #000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+
+.editor.is-on {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.35s ease;
+}
+
+.editor svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.editor.is-on .ed-top,
+.editor.is-on .ed-side,
+.editor.is-on .ed-bar {
+    animation: rise 0.45s var(--ease-out) backwards;
+}
+
+.editor.is-on .ed-side {
+    animation-delay: 0.08s;
+}
+
+.editor.is-on .ed-bar {
+    animation-delay: 0.14s;
+}
+
+/* Верхняя строка: выйти, название, сложности, отмена, проверка, сохранение */
+.ed-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+    border-bottom: 3px solid #fff;
+}
+
+.ed-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 14px;
+    border: 3px solid #fff;
+    border-radius: 12px;
+    background: #000;
+    font-size: 14px;
+    font-weight: 700;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring), box-shadow 0.3s ease, opacity 0.15s ease;
+}
+
+.ed-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.ed-btn.is-icon {
+    width: 40px;
+    padding: 0;
+}
+
+.ed-btn:hover {
+    background: #fff;
+    color: #000;
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+}
+
+.ed-btn:active {
+    transform: scale(0.95);
+    transition-duration: 0.08s;
+}
+
+.ed-btn:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.ed-btn.is-main {
+    background: #fff;
+    color: #000;
+}
+
+.ed-btn.is-main:hover {
+    background: #d9d9d9;
+}
+
+.ed-name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.ed-name b,
+.ed-name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ed-name b {
+    font-size: 16px;
+}
+
+.ed-name span {
+    font-size: 12px;
+    color: var(--dim);
+}
+
+.ed-diffs {
+    display: flex;
+    gap: 6px;
+}
+
+.ed-diff {
+    --ink: #000;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 10px 0 6px;
+    border: 3px solid rgba(255, 255, 255, 0.35);
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.ed-diff .dif-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.ed-diff.is-empty {
+    color: var(--dim);
+}
+
+.ed-diff:hover {
+    border-color: #fff;
+    transform: translateY(-2px);
+}
+
+.ed-diff.is-on {
+    --ink: #fff;
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+}
+
+.ed-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Середина: поле слева, настройки справа */
+.ed-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 370px;
+    min-height: 0;
+}
+
+.ed-stage {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.ed-stage canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Запись: красной нет — монохром, поэтому мигающая белая плашка */
+.ed-rec {
+    position: absolute;
+    left: 50%;
+    top: 14px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #fff;
+    color: #000;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    transform: translate(-50%, -60px);
+    transition: transform 0.4s var(--spring);
+    pointer-events: none;
+}
+
+.editor.is-rec .ed-rec {
+    transform: translate(-50%, 0);
+    animation: hint-pulse 1.2s ease-in-out infinite;
+}
+
+.ed-side {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 3px solid #fff;
+}
+
+.ed-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 10px 0;
+}
+
+.ed-tabs button {
+    flex: 1;
+    padding: 8px 2px;
+    border: 3px solid transparent;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--dim);
+    transition: color 0.15s ease, border-color 0.15s ease, transform 0.25s var(--spring);
+}
+
+.ed-tabs button:hover {
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.ed-tabs button.is-on {
+    border-color: #fff;
+    color: #fff;
+}
+
+.ed-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px 20px;
+    border-top: 3px solid #fff;
+}
+
+.ed-panel::-webkit-scrollbar {
+    display: none;
+}
+
+.ed-panel > * {
+    flex: none;
+}
+
+.ed-panel h3 {
+    margin-top: 6px;
+    font-size: 17px;
+}
+
+.ed-panel h3:first-child {
+    margin-top: 0;
+}
+
+.ed-panel h4 {
+    margin-top: 8px;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+}
+
+.ed-tip {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--dim);
+}
+
+.ed-tip b {
+    color: #fff;
+}
+
+.ed-keys {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--dim);
+}
+
+.ed-keys b {
+    display: inline-block;
+    min-width: 96px;
+    color: #fff;
+}
+
+.ed-head-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ed-head-row h3 {
+    flex: 1;
+    margin: 0;
+}
+
+.ed-head-row .mini-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.shape-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.shape-btn {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.35);
+    border-radius: 10px;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.shape-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+    stroke: none;
+}
+
+.shape-btn.is-text {
+    width: auto;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.shape-btn:hover {
+    border-color: #fff;
+    transform: translateY(-2px) rotate(-6deg);
+}
+
+.shape-btn.is-on {
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+}
+
+.tgl-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+}
+
+.btn-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.field-row .field {
+    flex: 1;
+}
+
+.field-row .seg,
+.field-row .mini-btn {
+    flex: none;
+    margin-bottom: 2px;
+}
+
+.tap-btn {
+    padding: 14px;
+    border-style: dashed;
+}
+
+/* «Циферблат»: откуда летит нота */
+.dial-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.dial {
+    flex: none;
+    width: 128px;
+    height: 128px;
+    cursor: grab;
+    touch-action: none;
+}
+
+.dial:active {
+    cursor: grabbing;
+}
+
+.dial-ticks line {
+    stroke: rgba(255, 255, 255, 0.5);
+    stroke-width: 2;
+}
+
+.dial-ring {
+    stroke: #fff;
+    stroke-width: 3;
+}
+
+.dial-hand {
+    stroke: #fff;
+    stroke-width: 3;
+    stroke-dasharray: 4 4;
+}
+
+.dial-knob {
+    fill: #fff;
+    stroke: #000;
+    stroke-width: 2;
+}
+
+.dial-dot {
+    fill: rgba(255, 255, 255, 0.6);
+    stroke: none;
+}
+
+.dial-side {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Дропы на вкладке «Бит» */
+.drop-row {
+    display: flex;
+    gap: 6px;
+}
+
+.drop-time {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drop-time:hover {
+    border-color: #fff;
+}
+
+.drop-row .mini-btn {
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+/* Ручные эффекты в редакторе */
+.fx-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+}
+
+.fx-row.is-active {
+    border-color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.fx-row > .drop-time {
+    flex: 1 1 78px;
+}
+
+.fx-row > .game-select {
+    flex: 1 1 100px;
+}
+
+.fx-row > .game-select .game-select-button {
+    padding: 8px 8px;
+    font-size: 12px;
+}
+
+.fx-value {
+    display: flex;
+    flex: 1 1 72px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.fx-value > span {
+    font-size: 11px;
+    color: var(--dim);
+}
+
+.fx-value .text {
+    padding: 7px 8px;
+    font-size: 12px;
+}
+
+.fx-row .mini-btn {
+    padding: 7px 10px;
+}
+
+/* Сложности на вкладке «Уровень» */
+.diff-sum {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.diff-sum-row {
+    --ink: #000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px 6px 6px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 700;
+    transition: border-color 0.15s ease, transform 0.3s var(--spring);
+}
+
+.diff-sum-row span {
+    flex: 1;
+}
+
+.diff-sum-row b {
+    font-size: 13px;
+    color: var(--dim);
+}
+
+.diff-sum-row:hover {
+    border-color: #fff;
+    transform: translateX(4px);
+}
+
+.diff-sum-row.is-on {
+    border-color: #fff;
+}
+
+/* Нижняя строка: песня, скорость, инструменты, сетка, масштаб, запись */
+.ed-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 18px;
+    padding: 8px 14px;
+    border-top: 3px solid #fff;
+}
+
+.ed-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ed-group .ed-label {
+    margin-right: 4px;
+}
+
+.ed-time {
+    min-width: 128px;
+    margin-left: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.seg-btn {
+    padding: 6px 9px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.25s var(--spring);
+}
+
+.seg-btn:hover {
+    border-color: #fff;
+    transform: translateY(-2px);
+}
+
+.seg-btn.is-on {
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+}
+
+.rec-btn {
+    margin-left: auto;
+}
+
+.rec-btn i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.rec-btn.is-on {
+    background: #fff;
+    color: #000;
+}
+
+.rec-btn.is-on i {
+    border-radius: 3px;
+    animation: hint-pulse 0.8s ease-in-out infinite;
+}
+
+/* Лента времени и вся песня */
+.ed-line,
+.ed-over {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+.ed-line {
+    border-top: 3px solid #fff;
+}
+
+.ed-over {
+    cursor: pointer;
+    border-top: 2px solid rgba(255, 255, 255, 0.35);
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Подписи групп внизу не влезают — остаются подсказки при наведении */
+@media (max-width: 1400px) {
+    .ed-bar {
+        gap: 8px 12px;
+    }
+
+    .ed-group .ed-label {
+        display: none;
+    }
+}
+
+@media (max-width: 1100px) {
+    .ed-diff span,
+    #edTest span {
+        display: none;
+    }
+
+    .ed-diff {
+        padding: 0 6px;
+    }
+}
+
+/* Узкий экран: поле сверху, настройки под ним */
+@media (max-width: 860px) {
+    .editor {
+        grid-template-rows: auto minmax(0, 1fr) auto 120px 24px;
+    }
+
+    .ed-top {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;
+    }
+
+    #edExit span {
+        display: none;
+    }
+
+    #edExit {
+        width: 40px;
+        padding: 0;
+    }
+
+    .ed-diffs {
+        order: 3;
+        flex: 1 1 100%;
+    }
+
+    .ed-diff {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .ed-main {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(150px, 40%) minmax(0, 1fr);
+    }
+
+    .ed-side {
+        border-left: 0;
+        border-top: 3px solid #fff;
+    }
+
+    .ed-bar {
+        gap: 6px 10px;
+        padding: 6px 10px;
+    }
+
+    .ed-group .ed-label {
+        display: none;
+    }
+
+    .ed-time {
+        min-width: 0;
+        font-size: 13px;
+    }
+
+    .rec-btn {
+        margin-left: 0;
+    }
+}
+
+/* ===== Телефон и узкие экраны: логотип уезжает вверх, уровни под ним ===== */
+
+/* Размер и место логотипа сверху считает app.js (fitLevels) по высоте экрана */
+@media (max-width: 760px), (orientation: portrait) {
+    body.is-levels .logo-stage {
+        --lx: 0px;
+        --ly: var(--top-ly, -36vh);
+        --ls: var(--top-ls, 0.4);
+    }
+
+    .levels {
+        left: 16px;
+        right: 16px;
+        top: var(--top-list, 27vh);
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        width: auto;
+        max-height: none;
+        transform: none;
+    }
+
+    .levels-list {
+        padding-left: 6px;
+    }
+
+    .level-card:hover,
+    .level-card:active {
+        transform: none;
+    }
+
+    .loader {
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .home-btn {
+        top: calc(16px + env(safe-area-inset-top, 0px));
+        left: 16px;
+        width: 46px;
+        height: 46px;
+    }
+
+    .now-playing {
+        top: calc(20px + env(safe-area-inset-top, 0px));
+        right: calc(12px + env(safe-area-inset-right, 0px));
+        max-width: calc(100vw - 82px);
+        font-size: 12px;
+    }
+
+    .level-diffs-in {
+        padding-left: 16px;
+    }
+
+    .act-btn span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* У своих уровней четыре кнопки — на телефоне все только значками */
+    .level-actions:has(.is-icon) .act-btn span {
+        display: none;
+    }
+
+    .hud {
+        top: calc(14px + env(safe-area-inset-top, 0px));
+        left: 14px;
+        gap: 8px;
+    }
+
+    .score {
+        font-size: 28px;
+    }
+
+    .pause-btn {
+        top: calc(14px + env(safe-area-inset-top, 0px));
+        right: 14px;
+        width: 42px;
+        height: 42px;
+    }
+
+    .game-mods {
+        top: calc(66px + env(safe-area-inset-top, 0px));
+        right: 14px;
+    }
+
+    .results-actions {
+        left: 16px;
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .disclaimer .disclaimer-hint {
+        animation: none;
+    }
+}

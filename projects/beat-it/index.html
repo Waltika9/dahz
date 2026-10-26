@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <title>BEAT IT by Waltika</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='8' fill='%23000' stroke='%23fff' stroke-width='3'/%3E%3Cpath d='M12 9h6.5a4 4 0 0 1 1.6 7.6A4.2 4.2 0 0 1 18 24h-8z' fill='%23fff' transform='skewX(-10) translate(3 0)'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=18">
+</head>
+<body>
+    <!-- Вспышки по бокам (на дропах) и на весь экран (когда падает логотип) -->
+    <div class="flash flash-left" id="flashLeft"></div>
+    <div class="flash flash-right" id="flashRight"></div>
+
+    <!-- ===== Главное меню ===== -->
+    <main class="menu" id="menu">
+        <div class="logo-stage" id="logoStage">
+            <!-- Слегка тянется за курсором -->
+            <div class="logo-move" id="logoMove">
+                <div class="logo-fall" id="logoFall">
+                    <div class="logo-waves" id="logoWaves"></div>
+                    <button class="logo" id="logoBtn" type="button" aria-label="BEAT IT — открыть уровни">
+                        <svg class="logo-svg" id="logoSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- На главную страницу сайта (видно только в списке уровней) -->
+        <a class="home-btn" href="../../index.html" title="На главную сайта" aria-label="На главную страницу сайта">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.5 10.6 12 4.2l7.5 6.4V19a1.3 1.3 0 0 1-1.3 1.3H5.8A1.3 1.3 0 0 1 4.5 19z"/>
+                <path d="M10 20.3v-4a2 2 0 0 1 4 0v4"/>
+            </svg>
+        </a>
+
+        <section class="levels" aria-label="Уровни">
+            <div class="levels-head">
+                <h2 class="levels-title">Выбор уровня</h2>
+                <button class="act-btn create-btn" id="createBtn" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Создать уровень</span>
+                </button>
+            </div>
+            <ul class="levels-list" id="levelsList"></ul>
+        </section>
+    </main>
+
+    <div class="now-playing" id="nowPlaying" aria-label="Музыка меню">
+        <span class="now-playing-title" id="nowPlayingTitle"></span>
+        <button class="skip-track" id="skipTrack" type="button" title="Следующий трек" aria-label="Следующий трек">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.7 6c0-.9.9-1.3 1.6-.8l7.5 5.8a1.3 1.3 0 0 1 0 2l-7.5 5.8c-.7.5-1.6.1-1.6-.8z"/>
+                <path d="M12.7 6c0-.9.9-1.3 1.6-.8l7.5 5.8a1.3 1.3 0 0 1 0 2l-7.5 5.8c-.7.5-1.6.1-1.6-.8z"/>
+            </svg>
+        </button>
+    </div>
+    <div class="flash-full" id="flashFull"></div>
+    <div class="file-drop" id="fileDrop" aria-hidden="true">
+        <div class="file-drop-box">Отпустите файл .rhythm, чтобы открыть уровень</div>
+    </div>
+
+    <!-- ===== Уровень ===== -->
+    <section class="game" id="game" aria-label="Уровень">
+        <div class="game-bg" id="gameBg"></div>
+        <canvas class="game-canvas" id="gameCanvas"></canvas>
+
+        <!-- Слева сверху: здоровье, счёт, сколько прошло -->
+        <div class="hud">
+            <div class="hp"><i id="hpFill"></i></div>
+            <div class="score-row">
+                <span class="score" id="score">000000</span>
+                <span class="score-add" id="scoreAdd"></span>
+            </div>
+            <div class="clock-row">
+                <i class="progress" id="progress"></i>
+                <span class="stopwatch" id="stopwatch">00:00:000</span>
+            </div>
+        </div>
+
+        <button class="pause-btn" id="pauseBtn" type="button" aria-label="Пауза">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6v12M15.5 6v12"/></svg>
+        </button>
+        <div class="game-mods" id="gameMods"></div>
+        <div class="combo" id="combo"></div>
+        <div class="game-intro" id="gameIntro"></div>
+        <div class="game-fail" id="gameFail">ПРОВАЛ</div>
+
+        <div class="pause-menu" id="pauseMenu">
+            <div class="modal-box">
+                <h2>Пауза</h2>
+                <button class="modal-btn is-main" id="resumeBtn" type="button">Продолжить</button>
+                <button class="modal-btn" id="restartBtn" type="button">Заново</button>
+                <button class="modal-btn" id="quitBtn" type="button">В главное меню</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Результат ===== -->
+    <section class="results" id="results" aria-label="Результат">
+        <canvas class="results-canvas" id="resultsCanvas"></canvas>
+        <div class="results-actions">
+            <button class="big-btn" id="saveBtn" type="button">Сохранить</button>
+            <button class="big-btn" id="menuBtn" type="button">В главное меню</button>
+        </div>
+    </section>
+
+    <!-- Выход с результата -->
+    <div class="modal" id="exitModal">
+        <div class="modal-box">
+            <h2>Выйти в главное меню?</h2>
+            <p>Если выйти, результат не сохранится. Можно сначала сохранить картинку с ним.</p>
+            <button class="modal-btn is-main" id="exitSave" type="button">Сохранить картинку и выйти</button>
+            <button class="modal-btn" id="exitJust" type="button">Просто выйти</button>
+            <button class="modal-btn" id="exitCancel" type="button">Отмена</button>
+        </div>
+    </div>
+
+    <!-- Опции уровня -->
+    <div class="modal" id="optionsModal">
+        <div class="modal-box">
+            <h2>Опции</h2>
+            <p>Действуют на все уровни. Если что-то включено, на карточке уровня появится значок.</p>
+            <div class="opt-list" id="optionsList"></div>
+            <div class="modal-row">
+                <button class="modal-btn" id="optionsReset" type="button">Сбросить</button>
+                <button class="modal-btn is-main" id="optionsClose" type="button">Готово</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Создать уровень: автоматически или в редакторе (содержимое — create.js) -->
+    <div class="modal" id="createModal">
+        <div class="modal-box"></div>
+    </div>
+
+    <!-- Вопрос «Точно?» (dialog.js) -->
+    <div class="modal ask-modal" id="askModal">
+        <div class="modal-box"></div>
+    </div>
+
+    <!-- ===== Редактор уровня (editor.js, timeline.js) ===== -->
+    <section class="editor" id="editor" aria-label="Редактор уровня">
+        <header class="ed-top">
+            <button class="ed-btn" id="edExit" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6 8.5 12l6 6"/></svg><span>Выйти</span>
+            </button>
+            <div class="ed-name" id="edName"></div>
+            <div class="ed-diffs" id="edDiffs"></div>
+            <div class="ed-actions">
+                <button class="ed-btn is-icon" id="edUndo" type="button" title="Отменить (Ctrl+Z)" aria-label="Отменить">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4.5 11.5 9 16M5 11.5h9a5 5 0 0 1 0 10h-2"/></svg>
+                </button>
+                <button class="ed-btn is-icon" id="edRedo" type="button" title="Вернуть (Ctrl+Y)" aria-label="Вернуть">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 7l4.5 4.5L15 16M19 11.5h-9a5 5 0 0 0 0 10h2"/></svg>
+                </button>
+                <button class="ed-btn" id="edTest" type="button" title="Сыграть уровень с текущего места">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13L18.5 12z"/></svg><span>Проверить</span>
+                </button>
+                <button class="ed-btn is-main" id="edSave" type="button" title="Сохранить (Ctrl+S)">Сохранить</button>
+            </div>
+        </header>
+        <div class="ed-main">
+            <div class="ed-stage" id="edStage">
+                <div class="ed-bg" id="edBg"></div>
+                <canvas id="edField"></canvas>
+                <div class="ed-rec">● Запись — нажимайте любую клавишу в такт. Esc — стоп</div>
+            </div>
+            <aside class="ed-side">
+                <nav class="ed-tabs" id="edTabs"></nav>
+                <div class="ed-panel" id="edPanel"></div>
+                <div class="ed-panel" id="edBgPanel" hidden></div>
+            </aside>
+        </div>
+        <div class="ed-bar" id="edBar"></div>
+        <canvas class="ed-line" id="edLine"></canvas>
+        <canvas class="ed-over" id="edOver"></canvas>
+    </section>
+
+    <!-- ===== Предупреждение (до логотипа) ===== -->
+    <section class="disclaimer" id="disclaimer">
+        <div class="disclaimer-box">
+            <svg class="disclaimer-icon" viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M24 6 44 41H4z" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+                <path d="M24 19v10" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="24" cy="35" r="2.6" fill="#fff"/>
+            </svg>
+            <h1>Внимание</h1>
+            <p>В игре могут быть мигающие эффекты и громкая музыка.</p>
+            <p class="disclaimer-hint" id="disclaimerHint">Нажмите любую клавишу или кнопку мыши, чтобы продолжить</p>
+        </div>
+    </section>
+
+    <!-- ===== Загрузка (снизу справа) ===== -->
+    <div class="loader" id="loader" aria-label="Загрузка">
+        <div class="loader-box"></div>
+        <svg class="loader-arc" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="13"/></svg>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module" src="js/app.js?v=25"></script>
+</body>
+</html>
