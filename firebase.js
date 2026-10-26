@@ -138,6 +138,10 @@ const BUILTIN_PROJECTS = {
     a_metro: {
         title: 'AlmaMetro', link: 'projects/a-metro/index.html',
         tag: 'a-metro.js', image: 'images/a-metro_prev.png', order: 10, eternal: true
+    },
+    beat_it: {
+        title: 'BEAT IT', link: 'projects/beat-it/index.html',
+        tag: 'beat-it.rhythm', image: 'images/beat-it_prev.png', order: 11, eternal: true
     }
 };
 
